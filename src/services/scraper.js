@@ -18,43 +18,43 @@ class RSIScraper {
                 throw new Error('Profile not found');
             }
 
-            // Get organization info and SID
-            const orgElement = $('.main-org .org-name');
-            let orgInfo = null;
+            // Get basic profile info
+            const handle = $('.info .value').first().text().trim();
+            const signupDate = $('.info .entry:contains("Handle name") .value').text().trim();
+            const enlisted = $('.left-col .entry:contains("Enlisted") .value').text().trim();
+            const location = $('.left-col .entry:contains("Location") .value').text().trim();
 
-            if (orgElement.length > 0) {
-                const orgLink = $('.main-org').find('a').attr('href');
-                const orgSID = orgLink ? orgLink.split('/')[2] : null;
+            // Get organization info
+            let orgInfo = null;
+            const mainOrg = $('.main-org');
+            
+            if (mainOrg.length > 0) {
+                const orgLink = mainOrg.find('a').first();
+                const orgName = orgLink.text().trim();
+                const orgHref = orgLink.attr('href');
+                const orgSID = orgHref ? orgHref.split('/')[2] : null;
+                const orgRank = mainOrg.find('.org-rank').text().trim() || 'N/A';
 
                 if (orgSID) {
                     // Get organization details
-                    const orgResponse = await axios.get(`https://robertsspaceindustries.com/orgs/${orgSID}/members`, {
+                    const orgResponse = await axios.get(`https://robertsspaceindustries.com/orgs/${orgSID}`, {
                         headers: {
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                         }
                     });
 
                     const org$ = cheerio.load(orgResponse.data);
-                    const memberCount = org$('.member-item').length;
+                    const memberCount = org$('.logo .count').text().trim().split(' ')[0] || 'Unknown';
 
                     orgInfo = {
-                        name: orgElement.text().trim(),
+                        name: orgName,
                         sid: orgSID,
-                        rank: $('.main-org .org-rank').text().trim() || 'N/A',
+                        rank: orgRank,
                         memberCount: memberCount,
                         url: `https://robertsspaceindustries.com/orgs/${orgSID}`
                     };
                 }
             }
-
-            // Get handle and dates from profile info
-            const handle = $('.profile .info .value').first().text().trim();
-            const signupDate = $('.profile .info .value').eq(1).text().trim();
-            const enlisted = $('.profile .left-col .value').first().text().trim();
-
-            // Get location from the correct column
-            const locationLabel = $('.profile .right-col .label').filter((i, el) => $(el).text().trim().toLowerCase() === 'location');
-            const location = locationLabel.length > 0 ? locationLabel.next('.value').text().trim() : 'N/A';
 
             // Extract profile data
             const data = {

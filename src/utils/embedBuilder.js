@@ -17,16 +17,20 @@ class EmbedBuilderUtil {
 
         // Add location if available
         if (profileData.location) {
-            embed.addFields({ name: 'Location', value: profileData.location, inline: false });
+            embed.addFields({ 
+                name: 'Location', 
+                value: profileData.location, 
+                inline: false 
+            });
         }
 
         // Add organization information if available
         if (profileData.organization) {
             const orgField = [
-                `Name: [${profileData.organization.name}](${profileData.organization.url})`,
-                `Rank: ${profileData.organization.rank}`,
-                `Members: ${profileData.organization.memberCount}`,
-                `Organization ID: ${profileData.organization.sid}`
+                `**Name**: [${profileData.organization.name}](${profileData.organization.url})`,
+                `**Rank**: ${profileData.organization.rank}`,
+                `**Members**: ${profileData.organization.memberCount}`,
+                `**Organization ID**: ${profileData.organization.sid}`
             ].join('\n');
 
             embed.addFields({
