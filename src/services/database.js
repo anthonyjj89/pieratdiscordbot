@@ -15,11 +15,14 @@ class DatabaseService {
                 target_handle TEXT NOT NULL,
                 reporter_id TEXT NOT NULL,
                 cargo_type TEXT NOT NULL,
-                amount INTEGER NOT NULL,
+                boxes INTEGER NOT NULL,
+                sell_location TEXT NOT NULL,
+                current_price REAL NOT NULL,
                 notes TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 guild_id TEXT NOT NULL,
-                status TEXT DEFAULT 'unsold'
+                status TEXT DEFAULT 'unsold',
+                seller_id TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS crew_members (
@@ -27,7 +30,6 @@ class DatabaseService {
                 hit_id INTEGER NOT NULL,
                 user_id TEXT NOT NULL,
                 share FLOAT NOT NULL,
-                role TEXT NOT NULL,
                 FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
             );
 
@@ -65,8 +67,11 @@ class DatabaseService {
 
     async addReport(report) {
         const sql = `
-            INSERT INTO reports (target_handle, reporter_id, cargo_type, amount, notes, guild_id)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO reports (
+                target_handle, reporter_id, cargo_type, boxes, 
+                sell_location, current_price, notes, guild_id, seller_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         return new Promise((resolve, reject) => {
@@ -74,9 +79,12 @@ class DatabaseService {
                 report.targetHandle,
                 report.reporterId,
                 report.cargoType,
-                report.amount,
+                report.boxes,
+                report.sellLocation,
+                report.currentPrice,
                 report.notes,
-                report.guildId
+                report.guildId,
+                report.sellerId
             ], function(err) {
                 if (err) {
                     reject(err);
@@ -89,16 +97,15 @@ class DatabaseService {
 
     async addCrewMember(crewMember) {
         const sql = `
-            INSERT INTO crew_members (hit_id, user_id, share, role)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO crew_members (hit_id, user_id, share)
+            VALUES (?, ?, ?)
         `;
 
         return new Promise((resolve, reject) => {
             this.db.run(sql, [
                 crewMember.hitId,
                 crewMember.userId,
-                crewMember.share,
-                crewMember.role
+                crewMember.share
             ], function(err) {
                 if (err) {
                     reject(err);
@@ -156,7 +163,7 @@ class DatabaseService {
         const sql = `
             SELECT 
                 r.*,
-                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role) as crew,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share) as crew,
                 s.holder_id as storage_holder
             FROM reports r
             LEFT JOIN crew_members cm ON r.id = cm.hit_id
@@ -176,11 +183,10 @@ class DatabaseService {
                     const processedRows = rows.map(row => {
                         const crewData = row.crew ? row.crew.split(',') : [];
                         const crew = [];
-                        for (let i = 0; i < crewData.length; i += 3) {
+                        for (let i = 0; i < crewData.length; i += 2) {
                             crew.push({
                                 userId: crewData[i],
-                                share: parseFloat(crewData[i + 1]),
-                                role: crewData[i + 2]
+                                share: parseFloat(crewData[i + 1])
                             });
                         }
                         return {
@@ -213,7 +219,7 @@ class DatabaseService {
         const sql = `
             SELECT 
                 r.*,
-                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role) as crew,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share) as crew,
                 s.holder_id as storage_holder
             FROM reports r
             LEFT JOIN crew_members cm ON r.id = cm.hit_id
@@ -232,11 +238,10 @@ class DatabaseService {
                     const processedRows = rows.map(row => {
                         const crewData = row.crew ? row.crew.split(',') : [];
                         const crew = [];
-                        for (let i = 0; i < crewData.length; i += 3) {
+                        for (let i = 0; i < crewData.length; i += 2) {
                             crew.push({
                                 userId: crewData[i],
-                                share: parseFloat(crewData[i + 1]),
-                                role: crewData[i + 2]
+                                share: parseFloat(crewData[i + 1])
                             });
                         }
                         return {
@@ -257,7 +262,7 @@ class DatabaseService {
                 SELECT 
                     cm.user_id,
                     r.id as hit_id,
-                    cm.share,
+                    r.boxes * r.current_price * cm.share as potential_earnings,
                     COALESCE(SUM(p.amount), 0) as received_amount
                 FROM crew_members cm
                 JOIN reports r ON cm.hit_id = r.id
@@ -267,7 +272,7 @@ class DatabaseService {
             )
             SELECT 
                 user_id,
-                SUM(share) as total_share,
+                SUM(potential_earnings) as total_potential,
                 SUM(received_amount) as total_received
             FROM crew_earnings
             WHERE user_id = ?
@@ -279,7 +284,11 @@ class DatabaseService {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(row || { user_id: userId, total_share: 0, total_received: 0 });
+                    resolve(row || { 
+                        user_id: userId, 
+                        total_potential: 0, 
+                        total_received: 0 
+                    });
                 }
             });
         });
