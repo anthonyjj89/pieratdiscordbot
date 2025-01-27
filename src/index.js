@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,17 +13,37 @@ client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
+const commands = [];
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
     if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
+        commands.push(command.data.toJSON());
+    }
+}
+
+// Deploy slash commands
+async function deployCommands() {
+    try {
+        console.log('Started refreshing application (/) commands.');
+        const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+
+        await rest.put(
+            Routes.applicationCommands(process.env.CLIENT_ID),
+            { body: commands },
+        );
+
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error('Error deploying commands:', error);
     }
 }
 
 // Event handlers
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
     console.log('Bot is ready!');
+    await deployCommands();
 });
 
 client.on(Events.InteractionCreate, async interaction => {

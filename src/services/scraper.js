@@ -1,48 +1,43 @@
-const puppeteer = require('puppeteer');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 class RSIScraper {
     async getProfileData(username) {
-        const browser = await puppeteer.launch({ headless: "new" });
         try {
-            const page = await browser.newPage();
-            await page.goto(`https://robertsspaceindustries.com/citizens/${username}`, {
-                waitUntil: 'networkidle0'
+            const response = await axios.get(`https://robertsspaceindustries.com/citizens/${username}`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
             });
 
+            const $ = cheerio.load(response.data);
+
             // Check if profile exists
-            const notFoundElement = await page.$('.not-found');
-            if (notFoundElement) {
+            if ($('.not-found').length > 0) {
                 throw new Error('Profile not found');
             }
 
+            // Get organization info
+            const orgElement = $('.org-name');
+            const orgInfo = orgElement.length > 0 ? {
+                name: orgElement.text().trim(),
+                rank: $('.org-rank').text().trim() || 'N/A'
+            } : null;
+
             // Extract profile data
-            const data = await page.evaluate(() => {
-                const getTextContent = (selector) => {
-                    const element = document.querySelector(selector);
-                    return element ? element.textContent.trim() : null;
-                };
-
-                // Get organization info
-                const orgElement = document.querySelector('.org-name');
-                const orgInfo = orgElement ? {
-                    name: orgElement.textContent.trim(),
-                    rank: document.querySelector('.org-rank')?.textContent.trim() || 'N/A'
-                } : null;
-
-                return {
-                    handle: getTextContent('.info .value'),
-                    joinDate: getTextContent('.info .value:nth-child(2)'),
-                    organization: orgInfo,
-                    enlisted: getTextContent('.profile-content .left-col .value'),
-                    location: getTextContent('.profile-content .right-col .value')
-                };
-            });
+            const data = {
+                handle: $('.info .value').first().text().trim(),
+                enlisted: $('.profile-content .left-col .value').first().text().trim(),
+                location: $('.profile-content .right-col .value').first().text().trim(),
+                organization: orgInfo
+            };
 
             return data;
         } catch (error) {
+            if (error.response && error.response.status === 404) {
+                throw new Error('Profile not found');
+            }
             throw error;
-        } finally {
-            await browser.close();
         }
     }
 }
