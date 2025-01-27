@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
 class EmbedBuilderUtil {
     createProfileEmbed(profileData) {
@@ -16,7 +16,6 @@ class EmbedBuilderUtil {
         // Add basic profile information
         embed.addFields(
             { name: 'Handle', value: profileData.handle || 'N/A', inline: true },
-            { name: 'Sign-up Date', value: profileData.signupDate || 'N/A', inline: true },
             { name: 'Enlisted', value: profileData.enlisted || 'N/A', inline: true }
         );
 
@@ -86,6 +85,18 @@ class EmbedBuilderUtil {
             .setTitle('Error')
             .setDescription(error.message)
             .setTimestamp();
+    }
+
+    createReportButton() {
+        const button = new ButtonBuilder()
+            .setCustomId('report_piracy')
+            .setLabel('🏴‍☠️ Report Piracy')
+            .setStyle(ButtonStyle.Danger);
+
+        const row = new ActionRowBuilder()
+            .addComponents(button);
+
+        return row;
     }
 }
 
