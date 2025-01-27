@@ -19,11 +19,11 @@ class RSIScraper {
             }
 
             // Get organization info and SID
-            const orgElement = $('.org-name');
+            const orgElement = $('.main-org .org-name');
             let orgInfo = null;
 
             if (orgElement.length > 0) {
-                const orgLink = orgElement.closest('a').attr('href');
+                const orgLink = $('.main-org').find('a').attr('href');
                 const orgSID = orgLink ? orgLink.split('/')[2] : null;
 
                 if (orgSID) {
@@ -40,19 +40,28 @@ class RSIScraper {
                     orgInfo = {
                         name: orgElement.text().trim(),
                         sid: orgSID,
-                        rank: $('.org-rank').text().trim() || 'N/A',
+                        rank: $('.main-org .org-rank').text().trim() || 'N/A',
                         memberCount: memberCount,
                         url: `https://robertsspaceindustries.com/orgs/${orgSID}`
                     };
                 }
             }
 
+            // Get handle and dates from profile info
+            const handle = $('.profile .info .value').first().text().trim();
+            const signupDate = $('.profile .info .value').eq(1).text().trim();
+            const enlisted = $('.profile .left-col .value').first().text().trim();
+
+            // Get location from the correct column
+            const locationLabel = $('.profile .right-col .label').filter((i, el) => $(el).text().trim().toLowerCase() === 'location');
+            const location = locationLabel.length > 0 ? locationLabel.next('.value').text().trim() : 'N/A';
+
             // Extract profile data
             const data = {
-                handle: $('.info .value').first().text().trim(),
-                signupDate: $('.info .value').eq(1).text().trim(),
-                enlisted: $('.profile-content .left-col .value').first().text().trim(),
-                location: $('.profile-content .right-col .value').first().text().trim(),
+                handle,
+                signupDate,
+                enlisted,
+                location,
                 organization: orgInfo
             };
 
