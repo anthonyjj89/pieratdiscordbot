@@ -30,15 +30,102 @@ module.exports = {
             const username = interaction.options.getString('username');
             const profileData = await scraper.getProfileData(username);
             
-            // Create main profile embed
-            const embed = embedBuilder.createProfileEmbed(profileData);
-            
+            // Create embeds array
+            const embeds = [];
+
+            // Main profile embed
+            const mainEmbed = new EmbedBuilder()
+                .setColor('#2f3136')
+                .setTitle(`Star Citizen Profile: ${profileData.handle}`)
+                .setURL(`https://robertsspaceindustries.com/citizens/${profileData.handle}`)
+                .setTimestamp();
+
+            // Set user avatar
+            if (profileData.avatarUrl) {
+                mainEmbed.setThumbnail(profileData.avatarUrl);
+            }
+
+            // Add basic info
+            mainEmbed.addFields(
+                { name: 'Handle', value: profileData.handle || 'N/A', inline: true },
+                { name: 'Enlisted', value: profileData.enlisted || 'N/A', inline: true },
+                { name: '\u200b', value: '\u200b', inline: true }
+            );
+
+            if (profileData.location) {
+                mainEmbed.addFields({ 
+                    name: 'Location', 
+                    value: profileData.location, 
+                    inline: false 
+                });
+            }
+
+            // Add main org info
+            if (profileData.mainOrg) {
+                if (profileData.mainOrg.isRedacted) {
+                    mainEmbed.addFields({
+                        name: 'Main Organization',
+                        value: '**[REDACTED]**',
+                        inline: false
+                    });
+                } else {
+                    mainEmbed.addFields({
+                        name: 'Main Organization',
+                        value: [
+                            `**Name**: [${profileData.mainOrg.name}](${profileData.mainOrg.url})`,
+                            `**Rank**: ${profileData.mainOrg.rank}`,
+                            `**Members**: ${profileData.mainOrg.memberCount}`,
+                            `**Organization ID**: ${profileData.mainOrg.sid}`
+                        ].join('\n'),
+                        inline: false
+                    });
+
+                    if (profileData.mainOrg.logoUrl) {
+                        mainEmbed.setImage(profileData.mainOrg.logoUrl);
+                    }
+                }
+            }
+
+            embeds.push(mainEmbed);
+
+            // Add affiliated orgs
+            if (profileData.affiliatedOrgs?.length > 0) {
+                const affiliatedEmbed = new EmbedBuilder()
+                    .setColor('#2f3136')
+                    .setTitle('Affiliated Organizations');
+
+                profileData.affiliatedOrgs.forEach((org, index) => {
+                    if (org.isRedacted) {
+                        affiliatedEmbed.addFields({
+                            name: `${index + 1}. [REDACTED]`,
+                            value: '\u200b',
+                            inline: false
+                        });
+                    } else {
+                        const orgEmbed = new EmbedBuilder()
+                            .setColor('#2f3136')
+                            .setTitle(`${index + 1}. ${org.name}`)
+                            .addFields(
+                                { name: 'Rank', value: org.rank, inline: true },
+                                { name: 'Members', value: org.memberCount.toString(), inline: true },
+                                { name: 'Organization ID', value: org.sid, inline: true }
+                            );
+
+                        if (org.logoUrl) {
+                            orgEmbed.setImage(org.logoUrl);
+                        }
+
+                        embeds.push(orgEmbed);
+                    }
+                });
+            }
+
             // Create report button
             const reportButton = embedBuilder.createReportButton();
 
-            // Send embed with button
+            // Send all embeds
             await interaction.editReply({
-                embeds: [embed],
+                embeds: embeds,
                 components: [reportButton]
             });
 

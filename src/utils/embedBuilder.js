@@ -52,11 +52,7 @@ class EmbedBuilderUtil {
 
                 // Add main org logo to the right
                 if (profileData.mainOrg.logoUrl) {
-                    fields.push({
-                        name: '\u200b',
-                        value: `[${profileData.mainOrg.name}](${profileData.mainOrg.logoUrl})`,
-                        inline: true
-                    });
+                    embed.setImage(profileData.mainOrg.logoUrl);
                 }
 
                 // Add spacer for alignment
@@ -95,7 +91,7 @@ class EmbedBuilderUtil {
                     if (org.logoUrl) {
                         fields.push({
                             name: '\u200b',
-                            value: `[${org.name}](${org.logoUrl})`,
+                            value: org.logoUrl,
                             inline: true
                         });
                     } else {
