@@ -16,11 +16,9 @@ class EmbedBuilderUtil {
         // Add basic profile information
         const fields = [
             { name: 'Handle', value: profileData.handle || 'N/A', inline: true },
-            { name: 'Enlisted', value: profileData.enlisted || 'N/A', inline: true }
+            { name: 'Enlisted', value: profileData.enlisted || 'N/A', inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
         ];
-
-        // Add spacer for alignment
-        fields.push({ name: '\u200b', value: '\u200b', inline: true });
 
         // Add location if available
         if (profileData.location) {
@@ -49,35 +47,72 @@ class EmbedBuilderUtil {
                         `**Members**: ${profileData.mainOrg.memberCount}`,
                         `**Organization ID**: ${profileData.mainOrg.sid}`
                     ].join('\n'),
-                    inline: false
+                    inline: true
                 });
 
-                // Set main org logo as main image
+                // Add main org logo to the right
                 if (profileData.mainOrg.logoUrl) {
-                    embed.setImage(profileData.mainOrg.logoUrl);
+                    fields.push({
+                        name: '\u200b',
+                        value: `[${profileData.mainOrg.name}](${profileData.mainOrg.logoUrl})`,
+                        inline: true
+                    });
                 }
+
+                // Add spacer for alignment
+                fields.push({ name: '\u200b', value: '\u200b', inline: true });
             }
         }
 
         // Add affiliated organizations if any
         if (profileData.affiliatedOrgs && profileData.affiliatedOrgs.length > 0) {
-            const affiliatedOrgsField = profileData.affiliatedOrgs.map((org, index) => {
-                if (org.isRedacted) {
-                    return `${index + 1}. **[REDACTED]**`;
-                }
-                return [
-                    `${index + 1}. **[${org.name}](${org.url})**`,
-                    `   Rank: ${org.rank}`,
-                    `   Members: ${org.memberCount}`,
-                    `   Organization ID: ${org.sid}`,
-                    org.logoUrl ? `   [View Logo](${org.logoUrl})` : ''
-                ].filter(line => line).join('\n');
-            }).join('\n\n');
-
             fields.push({
                 name: 'Affiliated Organizations',
-                value: affiliatedOrgsField,
+                value: '\u200b',
                 inline: false
+            });
+
+            profileData.affiliatedOrgs.forEach((org, index) => {
+                if (org.isRedacted) {
+                    fields.push({
+                        name: `${index + 1}. [REDACTED]`,
+                        value: '\u200b',
+                        inline: false
+                    });
+                } else {
+                    // Org info
+                    fields.push({
+                        name: `${index + 1}. ${org.name}`,
+                        value: [
+                            `Rank: ${org.rank}`,
+                            `Members: ${org.memberCount}`,
+                            `Organization ID: ${org.sid}`
+                        ].join('\n'),
+                        inline: true
+                    });
+
+                    // Add org logo to the right
+                    if (org.logoUrl) {
+                        fields.push({
+                            name: '\u200b',
+                            value: `[${org.name}](${org.logoUrl})`,
+                            inline: true
+                        });
+                    } else {
+                        fields.push({
+                            name: '\u200b',
+                            value: '\u200b',
+                            inline: true
+                        });
+                    }
+
+                    // Add spacer for 2-column layout
+                    fields.push({
+                        name: '\u200b',
+                        value: '\u200b',
+                        inline: true
+                    });
+                }
             });
         }
 
