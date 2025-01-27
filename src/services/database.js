@@ -9,7 +9,7 @@ class DatabaseService {
     }
 
     async initializeDatabase() {
-        const createTable = `
+        const createTables = `
             CREATE TABLE IF NOT EXISTS reports (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 target_handle TEXT NOT NULL,
@@ -18,14 +18,43 @@ class DatabaseService {
                 amount INTEGER NOT NULL,
                 notes TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                guild_id TEXT NOT NULL
-            )
+                guild_id TEXT NOT NULL,
+                status TEXT DEFAULT 'unsold'
+            );
+
+            CREATE TABLE IF NOT EXISTS crew_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hit_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                share FLOAT NOT NULL,
+                role TEXT NOT NULL,
+                FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS storage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hit_id INTEGER NOT NULL,
+                holder_id TEXT NOT NULL,
+                status TEXT DEFAULT 'stored',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hit_id INTEGER NOT NULL,
+                payer_id TEXT NOT NULL,
+                receiver_id TEXT NOT NULL,
+                amount FLOAT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
+            );
         `;
 
         return new Promise((resolve, reject) => {
-            this.db.run(createTable, (err) => {
+            this.db.exec(createTables, (err) => {
                 if (err) {
-                    console.error('Error creating reports table:', err);
+                    console.error('Error creating tables:', err);
                     reject(err);
                 } else {
                     resolve();
@@ -58,12 +87,83 @@ class DatabaseService {
         });
     }
 
+    async addCrewMember(crewMember) {
+        const sql = `
+            INSERT INTO crew_members (hit_id, user_id, share, role)
+            VALUES (?, ?, ?, ?)
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.run(sql, [
+                crewMember.hitId,
+                crewMember.userId,
+                crewMember.share,
+                crewMember.role
+            ], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(this.lastID);
+                }
+            });
+        });
+    }
+
+    async setStorage(storage) {
+        const sql = `
+            INSERT INTO storage (hit_id, holder_id)
+            VALUES (?, ?)
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.run(sql, [
+                storage.hitId,
+                storage.holderId
+            ], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(this.lastID);
+                }
+            });
+        });
+    }
+
+    async addPayment(payment) {
+        const sql = `
+            INSERT INTO payments (hit_id, payer_id, receiver_id, amount)
+            VALUES (?, ?, ?, ?)
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.run(sql, [
+                payment.hitId,
+                payment.payerId,
+                payment.receiverId,
+                payment.amount
+            ], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(this.lastID);
+                }
+            });
+        });
+    }
+
     async getReports(guildId, page = 1, limit = 5) {
         const offset = (page - 1) * limit;
         const sql = `
-            SELECT * FROM reports 
-            WHERE guild_id = ? 
-            ORDER BY timestamp DESC 
+            SELECT 
+                r.*,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role) as crew,
+                s.holder_id as storage_holder
+            FROM reports r
+            LEFT JOIN crew_members cm ON r.id = cm.hit_id
+            LEFT JOIN storage s ON r.id = s.hit_id
+            WHERE r.guild_id = ? 
+            GROUP BY r.id
+            ORDER BY r.timestamp DESC 
             LIMIT ? OFFSET ?
         `;
 
@@ -72,7 +172,24 @@ class DatabaseService {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(rows);
+                    // Process crew data
+                    const processedRows = rows.map(row => {
+                        const crewData = row.crew ? row.crew.split(',') : [];
+                        const crew = [];
+                        for (let i = 0; i < crewData.length; i += 3) {
+                            crew.push({
+                                userId: crewData[i],
+                                share: parseFloat(crewData[i + 1]),
+                                role: crewData[i + 2]
+                            });
+                        }
+                        return {
+                            ...row,
+                            crew,
+                            storage_holder: row.storage_holder || null
+                        };
+                    });
+                    resolve(processedRows);
                 }
             });
         });
@@ -94,9 +211,16 @@ class DatabaseService {
 
     async getReportsByTarget(targetHandle, guildId) {
         const sql = `
-            SELECT * FROM reports 
-            WHERE target_handle = ? AND guild_id = ?
-            ORDER BY timestamp DESC
+            SELECT 
+                r.*,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role) as crew,
+                s.holder_id as storage_holder
+            FROM reports r
+            LEFT JOIN crew_members cm ON r.id = cm.hit_id
+            LEFT JOIN storage s ON r.id = s.hit_id
+            WHERE r.target_handle = ? AND r.guild_id = ?
+            GROUP BY r.id
+            ORDER BY r.timestamp DESC
         `;
 
         return new Promise((resolve, reject) => {
@@ -104,7 +228,58 @@ class DatabaseService {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(rows);
+                    // Process crew data
+                    const processedRows = rows.map(row => {
+                        const crewData = row.crew ? row.crew.split(',') : [];
+                        const crew = [];
+                        for (let i = 0; i < crewData.length; i += 3) {
+                            crew.push({
+                                userId: crewData[i],
+                                share: parseFloat(crewData[i + 1]),
+                                role: crewData[i + 2]
+                            });
+                        }
+                        return {
+                            ...row,
+                            crew,
+                            storage_holder: row.storage_holder || null
+                        };
+                    });
+                    resolve(processedRows);
+                }
+            });
+        });
+    }
+
+    async getUserBalance(userId, guildId) {
+        const sql = `
+            WITH crew_earnings AS (
+                SELECT 
+                    cm.user_id,
+                    r.id as hit_id,
+                    cm.share,
+                    COALESCE(SUM(p.amount), 0) as received_amount
+                FROM crew_members cm
+                JOIN reports r ON cm.hit_id = r.id
+                LEFT JOIN payments p ON r.id = p.hit_id AND cm.user_id = p.receiver_id
+                WHERE r.guild_id = ?
+                GROUP BY cm.user_id, r.id
+            )
+            SELECT 
+                user_id,
+                SUM(share) as total_share,
+                SUM(received_amount) as total_received
+            FROM crew_earnings
+            WHERE user_id = ?
+            GROUP BY user_id
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.get(sql, [guildId, userId], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row || { user_id: userId, total_share: 0, total_received: 0 });
                 }
             });
         });

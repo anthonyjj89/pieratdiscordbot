@@ -80,11 +80,29 @@ class EmbedBuilderUtil {
     }
 
     createErrorEmbed(error) {
-        return new EmbedBuilder()
+        const embed = new EmbedBuilder()
             .setColor('#ff0000')
-            .setTitle('Error')
-            .setDescription(error.message)
+            .setTitle('❌ Error')
             .setTimestamp();
+
+        if (error.message === 'Profile not found' && error.username) {
+            embed.setDescription([
+                '**Profile not found**',
+                `Did you mean to type "${error.username}"?`,
+                '',
+                'Try checking:',
+                '• Spelling of the username',
+                '• Case sensitivity (some names are case-sensitive)',
+                '• Special characters or spaces',
+                '',
+                'You can verify the handle at:',
+                `https://robertsspaceindustries.com/citizens/${error.username}`
+            ].join('\n'));
+        } else {
+            embed.setDescription(error.message);
+        }
+
+        return embed;
     }
 
     createReportButton() {

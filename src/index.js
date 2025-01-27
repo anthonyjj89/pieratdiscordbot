@@ -79,53 +79,44 @@ client.on(Events.InteractionCreate, async interaction => {
         }
 
         // Handle button clicks
-        if (interaction.isButton() && interaction.customId === 'report_piracy') {
-            const username = interaction.message.embeds[0].title.split(': ')[1];
-            const command = client.commands.get('lookup');
-            if (command && command.handleReportButton) {
-                await command.handleReportButton(interaction, username);
+        if (interaction.isButton()) {
+            if (interaction.customId === 'report_piracy') {
+                const username = interaction.message.embeds[0].title.split(': ')[1];
+                const command = client.commands.get('lookup');
+                if (command && command.handleReportButton) {
+                    await command.handleReportButton(interaction, username);
+                }
+            } else if (interaction.customId === 'crew_next') {
+                const command = client.commands.get('lookup');
+                if (command && command.handleCrewNext) {
+                    await command.handleCrewNext(interaction);
+                }
             }
             return;
         }
 
         // Handle modal submissions
-        if (interaction.isModalSubmit() && interaction.customId.startsWith('piracy_report_')) {
-            const username = interaction.customId.replace('piracy_report_', '');
-            
-            try {
-                const cargoType = interaction.fields.getTextInputValue('cargo_type');
-                const amount = parseInt(interaction.fields.getTextInputValue('amount'));
-                const notes = interaction.fields.getTextInputValue('notes');
+        if (interaction.isModalSubmit()) {
+            const command = client.commands.get('lookup');
+            if (!command) return;
 
-                if (isNaN(amount)) {
-                    await interaction.reply({ 
-                        content: 'Invalid amount entered. Please enter a number.', 
-                        ephemeral: true 
-                    });
-                    return;
-                }
-
-                await database.addReport({
-                    targetHandle: username,
-                    reporterId: interaction.user.id,
-                    cargoType,
-                    amount,
-                    notes,
-                    guildId: interaction.guildId
-                });
-
-                await interaction.reply({ 
-                    content: `Piracy report submitted for ${username}! Use /hits to view all reports.`,
-                    ephemeral: true 
-                });
-            } catch (error) {
-                console.error('Error saving piracy report:', error);
-                await interaction.reply({ 
-                    content: 'An error occurred while saving the report.',
-                    ephemeral: true 
-                });
+            if (interaction.customId.startsWith('piracy_report_')) {
+                await command.handleModalSubmit(interaction);
+            } else if (interaction.customId === 'shares_modal') {
+                await command.handleSharesSubmit(interaction);
             }
+            return;
         }
+
+        // Handle select menus
+        if (interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
+            const command = client.commands.get('lookup');
+            if (command && command.handleCrewSelect) {
+                await command.handleCrewSelect(interaction);
+            }
+            return;
+        }
+
     } catch (error) {
         console.error('Interaction error:', error);
     }

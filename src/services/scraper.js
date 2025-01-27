@@ -2,20 +2,32 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 class RSIScraper {
+    constructor() {
+        this.baseUrl = 'https://robertsspaceindustries.com';
+        this.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        };
+    }
+
+    normalizeUrl(url) {
+        if (!url) return null;
+        return url.startsWith('http') ? url : `${this.baseUrl}${url}`;
+    }
+
     async getProfileData(username) {
         try {
             // Get profile data
-            const profileResponse = await axios.get(`https://robertsspaceindustries.com/citizens/${username}`, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+            const profileResponse = await axios.get(`${this.baseUrl}/citizens/${username}`, {
+                headers: this.headers
             });
 
             const $ = cheerio.load(profileResponse.data);
 
             // Check if profile exists
             if ($('.not-found').length > 0) {
-                throw new Error('Profile not found');
+                const error = new Error('Profile not found');
+                error.username = username;
+                throw error;
             }
 
             // Get basic profile info
@@ -23,13 +35,11 @@ class RSIScraper {
             const signupDate = $('.info .entry:contains("Handle name") .value').text().trim();
             const enlisted = $('.left-col .entry:contains("Enlisted") .value').text().trim();
             const location = $('.left-col .entry:contains("Location") .value').text().trim();
-            const avatarUrl = $('.profile .thumb img').attr('src');
+            const avatarUrl = this.normalizeUrl($('.profile .thumb img').attr('src'));
 
             // Get organizations data
-            const orgsResponse = await axios.get(`https://robertsspaceindustries.com/citizens/${username}/organizations`, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+            const orgsResponse = await axios.get(`${this.baseUrl}/citizens/${username}/organizations`, {
+                headers: this.headers
             });
 
             const org$ = cheerio.load(orgsResponse.data);
@@ -58,15 +68,15 @@ class RSIScraper {
                     const orgSID = orgHref ? orgHref.split('/')[2] : null;
                     const orgRank = mainOrgElement.find('.info .value:contains("rank")').text().trim() || 'N/A';
                     const memberCount = mainOrgElement.find('.thumb .members').text().trim().split(' ')[0] || 'Unknown';
-                    const logoUrl = mainOrgElement.find('.thumb img').attr('src');
+                    const logoUrl = this.normalizeUrl(mainOrgElement.find('.thumb img').attr('src'));
 
                     mainOrg = {
                         name: orgName,
                         sid: orgSID,
                         rank: orgRank,
                         memberCount: memberCount,
-                        url: `https://robertsspaceindustries.com/orgs/${orgSID}`,
-                        logoUrl: logoUrl ? `https://robertsspaceindustries.com${logoUrl}` : null,
+                        url: orgSID ? `${this.baseUrl}/orgs/${orgSID}` : null,
+                        logoUrl: logoUrl,
                         isRedacted: false
                     };
                 }
@@ -94,15 +104,15 @@ class RSIScraper {
                     const orgSID = orgHref ? orgHref.split('/')[2] : null;
                     const orgRank = org$(element).find('.info .value:contains("rank")').text().trim() || 'N/A';
                     const memberCount = org$(element).find('.thumb .members').text().trim().split(' ')[0] || 'Unknown';
-                    const logoUrl = org$(element).find('.thumb img').attr('src');
+                    const logoUrl = this.normalizeUrl(org$(element).find('.thumb img').attr('src'));
 
                     affiliatedOrgs.push({
                         name: orgName,
                         sid: orgSID,
                         rank: orgRank,
                         memberCount: memberCount,
-                        url: `https://robertsspaceindustries.com/orgs/${orgSID}`,
-                        logoUrl: logoUrl ? `https://robertsspaceindustries.com${logoUrl}` : null,
+                        url: orgSID ? `${this.baseUrl}/orgs/${orgSID}` : null,
+                        logoUrl: logoUrl,
                         isRedacted: false
                     });
                 }
@@ -114,7 +124,7 @@ class RSIScraper {
                 signupDate,
                 enlisted,
                 location,
-                avatarUrl: avatarUrl ? `https://robertsspaceindustries.com${avatarUrl}` : null,
+                avatarUrl,
                 mainOrg,
                 affiliatedOrgs
             };
@@ -122,7 +132,9 @@ class RSIScraper {
             return data;
         } catch (error) {
             if (error.response && error.response.status === 404) {
-                throw new Error('Profile not found');
+                const notFoundError = new Error('Profile not found');
+                notFoundError.username = username;
+                throw notFoundError;
             }
             throw error;
         }
