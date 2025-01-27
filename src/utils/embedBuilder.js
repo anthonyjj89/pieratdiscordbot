@@ -13,7 +13,7 @@ class EmbedBuilderUtil {
             embed.setThumbnail(profileData.avatarUrl);
         }
 
-        // Add basic profile information in left column
+        // Add basic profile information
         const fields = [
             { name: 'Handle', value: profileData.handle || 'N/A', inline: true },
             { name: 'Enlisted', value: profileData.enlisted || 'N/A', inline: true }
@@ -37,7 +37,7 @@ class EmbedBuilderUtil {
                 fields.push({
                     name: 'Main Organization',
                     value: '**[REDACTED]**',
-                    inline: true
+                    inline: false
                 });
             } else {
                 // Main org info
@@ -49,78 +49,40 @@ class EmbedBuilderUtil {
                         `**Members**: ${profileData.mainOrg.memberCount}`,
                         `**Organization ID**: ${profileData.mainOrg.sid}`
                     ].join('\n'),
-                    inline: true
+                    inline: false
                 });
 
-                // Add main org logo to the right
+                // Set main org logo as main image
                 if (profileData.mainOrg.logoUrl) {
-                    fields.push({
-                        name: '\u200b',
-                        value: `[View Logo](${profileData.mainOrg.logoUrl})`,
-                        inline: true
-                    });
+                    embed.setImage(profileData.mainOrg.logoUrl);
                 }
-
-                // Add spacer for alignment
-                fields.push({ name: '\u200b', value: '\u200b', inline: true });
             }
         }
 
         // Add affiliated organizations if any
         if (profileData.affiliatedOrgs && profileData.affiliatedOrgs.length > 0) {
+            const affiliatedOrgsField = profileData.affiliatedOrgs.map((org, index) => {
+                if (org.isRedacted) {
+                    return `${index + 1}. **[REDACTED]**`;
+                }
+                return [
+                    `${index + 1}. **[${org.name}](${org.url})**`,
+                    `   Rank: ${org.rank}`,
+                    `   Members: ${org.memberCount}`,
+                    `   Organization ID: ${org.sid}`,
+                    org.logoUrl ? `   [View Logo](${org.logoUrl})` : ''
+                ].filter(line => line).join('\n');
+            }).join('\n\n');
+
             fields.push({
                 name: 'Affiliated Organizations',
-                value: '\u200b',
+                value: affiliatedOrgsField,
                 inline: false
-            });
-
-            profileData.affiliatedOrgs.forEach((org, index) => {
-                if (org.isRedacted) {
-                    fields.push({
-                        name: `${index + 1}. [REDACTED]`,
-                        value: '\u200b',
-                        inline: true
-                    });
-                } else {
-                    // Org info
-                    fields.push({
-                        name: `${index + 1}. ${org.name}`,
-                        value: [
-                            `Rank: ${org.rank}`,
-                            `Members: ${org.memberCount}`,
-                            `Organization ID: ${org.sid}`
-                        ].join('\n'),
-                        inline: true
-                    });
-
-                    // Add org logo
-                    if (org.logoUrl) {
-                        fields.push({
-                            name: '\u200b',
-                            value: `[View Logo](${org.logoUrl})`,
-                            inline: true
-                        });
-                    } else {
-                        fields.push({
-                            name: '\u200b',
-                            value: '\u200b',
-                            inline: true
-                        });
-                    }
-
-                    // Add spacer for 3-column layout
-                    fields.push({ name: '\u200b', value: '\u200b', inline: true });
-                }
             });
         }
 
         // Add all fields to embed
         embed.addFields(fields);
-
-        // Set main org logo as main image if available
-        if (profileData.mainOrg?.logoUrl && !profileData.mainOrg.isRedacted) {
-            embed.setImage(profileData.mainOrg.logoUrl);
-        }
 
         return embed;
     }
@@ -161,26 +123,6 @@ class EmbedBuilderUtil {
             .addComponents(button);
 
         return row;
-    }
-
-    // Helper function to create org logo embeds
-    createOrgLogoEmbeds(profileData) {
-        const embeds = [];
-
-        // Add affiliated org logos
-        if (profileData.affiliatedOrgs) {
-            profileData.affiliatedOrgs.forEach(org => {
-                if (!org.isRedacted && org.logoUrl) {
-                    const embed = new EmbedBuilder()
-                        .setColor('#2f3136')
-                        .setTitle(`${org.name} Logo`)
-                        .setImage(org.logoUrl);
-                    embeds.push(embed);
-                }
-            });
-        }
-
-        return embeds;
     }
 }
 

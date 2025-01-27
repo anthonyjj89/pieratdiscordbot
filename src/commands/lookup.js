@@ -7,7 +7,8 @@ const {
     UserSelectMenuBuilder,
     StringSelectMenuBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    EmbedBuilder
 } = require('discord.js');
 const scraper = require('../services/scraper');
 const embedBuilder = require('../utils/embedBuilder');
@@ -32,27 +33,14 @@ module.exports = {
             // Create main profile embed
             const embed = embedBuilder.createProfileEmbed(profileData);
             
-            // Create org logo embeds
-            const logoEmbeds = embedBuilder.createOrgLogoEmbeds(profileData);
-            
             // Create report button
             const reportButton = embedBuilder.createReportButton();
 
-            // Send main embed with button
+            // Send embed with button
             await interaction.editReply({
                 embeds: [embed],
                 components: [reportButton]
             });
-
-            // Send org logo embeds as follow-up messages
-            if (logoEmbeds.length > 0) {
-                for (const logoEmbed of logoEmbeds) {
-                    await interaction.followUp({
-                        embeds: [logoEmbed],
-                        ephemeral: false // Make logos visible to everyone
-                    });
-                }
-            }
 
         } catch (error) {
             console.error('Error in lookup command:', error);
