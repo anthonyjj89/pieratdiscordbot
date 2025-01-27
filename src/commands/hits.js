@@ -13,6 +13,35 @@ const {
 const database = require('../services/database');
 const tradeScraper = require('../services/tradeScraper');
 
+// Common trade goods (limited to 25 for Discord's select menu limit)
+const COMMON_COMMODITIES = [
+    'SLAM',
+    'WIDOW',
+    'ETAM',
+    'NEON',
+    'STIMS',
+    'DISTILLED_SPIRITS',
+    'MEDICAL_SUPPLIES',
+    'PROCESSED_FOOD',
+    'WASTE',
+    'SCRAP',
+    'AGRICIUM',
+    'LARANITE',
+    'TITANIUM',
+    'DIAMOND',
+    'GOLD',
+    'BERYL',
+    'QUARTZ',
+    'ALUMINUM',
+    'TUNGSTEN',
+    'COPPER',
+    'ASTATINE',
+    'CHLORINE',
+    'HYDROGEN',
+    'FLUORINE',
+    'IODINE'
+];
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('hits')
@@ -49,12 +78,17 @@ module.exports = {
             // Get list of commodities from trade scraper
             const commodities = await tradeScraper.getCommodities();
             
+            // Filter to just common commodities and ensure we stay within Discord's limit
+            const filteredCommodities = commodities
+                .filter(c => COMMON_COMMODITIES.includes(c.value?.toUpperCase() || c.name.toUpperCase()))
+                .slice(0, 25);
+            
             // Create commodity select menu
             const commoditySelect = new StringSelectMenuBuilder()
                 .setCustomId('commodity_select')
                 .setPlaceholder('Select cargo type')
                 .addOptions(
-                    commodities.map(commodity => ({
+                    filteredCommodities.map(commodity => ({
                         label: commodity.name,
                         value: commodity.value || commodity.name,
                         description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
@@ -91,13 +125,25 @@ module.exports = {
         try {
             // Get prices for selected commodity
             const prices = await tradeScraper.getPrices(reportData.commodity);
-            reportData.prices = prices;
+            
+            // Check if we have valid price data
+            if (!prices || !prices.bestLocation || !prices.bestLocation.price) {
+                reportData.prices = {
+                    bestLocation: { name: '', price: 0 },
+                    averagePrice: 0,
+                    boxInfo: { unitsPerBox: 100 }
+                };
+            } else {
+                reportData.prices = prices;
+            }
 
             // Create price info embed
             const priceEmbed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle(`Current Prices for ${reportData.commodity}`)
-                .addFields(
+                .setTitle(`Current Prices for ${reportData.commodity}`);
+
+            if (prices && prices.bestLocation && prices.bestLocation.price) {
+                priceEmbed.addFields(
                     { 
                         name: '💰 Best Price', 
                         value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
@@ -109,6 +155,9 @@ module.exports = {
                         inline: false 
                     }
                 );
+            } else {
+                priceEmbed.setDescription('No current price data available');
+            }
 
             // Create box count modal
             const modal = new ModalBuilder()
@@ -126,16 +175,16 @@ module.exports = {
                 .setCustomId('price')
                 .setLabel('Price per unit (aUEC)')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder(`e.g., ${prices.bestLocation.price}`)
-                .setValue(prices.bestLocation.price.toString())
+                .setPlaceholder(`e.g., ${prices?.bestLocation?.price || '20000'}`)
+                .setValue(prices?.bestLocation?.price?.toString() || '')
                 .setRequired(true);
 
             const locationInput = new TextInputBuilder()
                 .setCustomId('location')
                 .setLabel('Where will you sell?')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder(prices.bestLocation.name)
-                .setValue(prices.bestLocation.name)
+                .setPlaceholder(prices?.bestLocation?.name || 'e.g., CRU-L5')
+                .setValue(prices?.bestLocation?.name || '')
                 .setRequired(true);
 
             const notesInput = new TextInputBuilder()
@@ -194,7 +243,7 @@ module.exports = {
         reportData.notes = notes;
 
         // Calculate total value
-        const totalValue = boxes * reportData.prices.boxInfo.unitsPerBox * price;
+        const totalValue = boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * price;
 
         // Create crew selection
         const crewSelect = new UserSelectMenuBuilder()
@@ -257,7 +306,7 @@ module.exports = {
         try {
             // Calculate shares
             const sharePerMember = 1.0 / reportData.crew.length;
-            const totalValue = reportData.boxes * reportData.prices.boxInfo.unitsPerBox * reportData.price;
+            const totalValue = reportData.boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * reportData.price;
 
             // Save the report
             const reportId = await database.addReport({
