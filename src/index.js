@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const database = require('./services/database');
 
 // Create client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -40,6 +41,12 @@ async function deployCommands() {
     }
 }
 
+// Ensure data directory exists
+const dataDir = path.join(__dirname, '../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
 // Event handlers
 client.once(Events.ClientReady, async () => {
     console.log('Bot is ready!');
@@ -47,20 +54,80 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
     try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'There was an error executing this command!', ephemeral: true });
-        } else {
-            await interaction.reply({ content: 'There was an error executing this command!', ephemeral: true });
+        // Handle slash commands
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) return;
+
+            try {
+                await command.execute(interaction);
+            } catch (error) {
+                console.error('Command execution error:', error);
+                const reply = { 
+                    content: 'There was an error executing this command!', 
+                    ephemeral: true 
+                };
+                
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp(reply);
+                } else {
+                    await interaction.reply(reply);
+                }
+            }
+            return;
         }
+
+        // Handle button clicks
+        if (interaction.isButton() && interaction.customId === 'report_piracy') {
+            const username = interaction.message.embeds[0].title.split(': ')[1];
+            const command = client.commands.get('lookup');
+            if (command && command.handleReportButton) {
+                await command.handleReportButton(interaction, username);
+            }
+            return;
+        }
+
+        // Handle modal submissions
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('piracy_report_')) {
+            const username = interaction.customId.replace('piracy_report_', '');
+            
+            try {
+                const cargoType = interaction.fields.getTextInputValue('cargo_type');
+                const amount = parseInt(interaction.fields.getTextInputValue('amount'));
+                const notes = interaction.fields.getTextInputValue('notes');
+
+                if (isNaN(amount)) {
+                    await interaction.reply({ 
+                        content: 'Invalid amount entered. Please enter a number.', 
+                        ephemeral: true 
+                    });
+                    return;
+                }
+
+                await database.addReport({
+                    targetHandle: username,
+                    reporterId: interaction.user.id,
+                    cargoType,
+                    amount,
+                    notes,
+                    guildId: interaction.guildId
+                });
+
+                await interaction.reply({ 
+                    content: `Piracy report submitted for ${username}! Use /hits to view all reports.`,
+                    ephemeral: true 
+                });
+            } catch (error) {
+                console.error('Error saving piracy report:', error);
+                await interaction.reply({ 
+                    content: 'An error occurred while saving the report.',
+                    ephemeral: true 
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Interaction error:', error);
     }
 });
 
