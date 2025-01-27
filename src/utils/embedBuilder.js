@@ -8,6 +8,11 @@ class EmbedBuilderUtil {
             .setURL(`https://robertsspaceindustries.com/citizens/${profileData.handle}`)
             .setTimestamp();
 
+        // Set user avatar as thumbnail if available
+        if (profileData.avatarUrl) {
+            embed.setThumbnail(profileData.avatarUrl);
+        }
+
         // Add basic profile information
         embed.addFields(
             { name: 'Handle', value: profileData.handle || 'N/A', inline: true },
@@ -24,24 +29,50 @@ class EmbedBuilderUtil {
             });
         }
 
-        // Add organization information if available
-        if (profileData.organization) {
-            const orgField = [
-                `**Name**: [${profileData.organization.name}](${profileData.organization.url})`,
-                `**Rank**: ${profileData.organization.rank}`,
-                `**Members**: ${profileData.organization.memberCount}`,
-                `**Organization ID**: ${profileData.organization.sid}`
-            ].join('\n');
+        // Add main organization information if available
+        if (profileData.mainOrg) {
+            let mainOrgField;
+            
+            if (profileData.mainOrg.isRedacted) {
+                mainOrgField = '**[REDACTED]**';
+            } else {
+                mainOrgField = [
+                    `**Name**: [${profileData.mainOrg.name}](${profileData.mainOrg.url})`,
+                    `**Rank**: ${profileData.mainOrg.rank}`,
+                    `**Members**: ${profileData.mainOrg.memberCount}`,
+                    `**Organization ID**: ${profileData.mainOrg.sid}`
+                ].join('\n');
+
+                // Set main org logo as main image if available
+                if (profileData.mainOrg.logoUrl) {
+                    embed.setImage(profileData.mainOrg.logoUrl);
+                }
+            }
 
             embed.addFields({
-                name: 'Organization',
-                value: orgField,
+                name: 'Main Organization',
+                value: mainOrgField,
                 inline: false
             });
-        } else {
+        }
+
+        // Add affiliated organizations if any
+        if (profileData.affiliatedOrgs && profileData.affiliatedOrgs.length > 0) {
+            const affiliatedOrgsField = profileData.affiliatedOrgs.map((org, index) => {
+                if (org.isRedacted) {
+                    return `${index + 1}. **[REDACTED]**`;
+                }
+                return [
+                    `${index + 1}. **[${org.name}](${org.url})**`,
+                    `   Rank: ${org.rank}`,
+                    `   Members: ${org.memberCount}`,
+                    `   Organization ID: ${org.sid}`
+                ].join('\n');
+            }).join('\n\n');
+
             embed.addFields({
-                name: 'Organization',
-                value: 'No organization',
+                name: 'Affiliated Organizations',
+                value: affiliatedOrgsField,
                 inline: false
             });
         }

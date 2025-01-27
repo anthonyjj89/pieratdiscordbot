@@ -23,38 +23,90 @@ class RSIScraper {
             const signupDate = $('.info .entry:contains("Handle name") .value').text().trim();
             const enlisted = $('.left-col .entry:contains("Enlisted") .value').text().trim();
             const location = $('.left-col .entry:contains("Location") .value').text().trim();
+            const avatarUrl = $('.profile .thumb img').attr('src');
 
-            // Get organization info
-            let orgInfo = null;
-            const mainOrg = $('.main-org');
+            // Get organizations data
+            const orgsResponse = await axios.get(`https://robertsspaceindustries.com/citizens/${username}/organizations`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
+            const org$ = cheerio.load(orgsResponse.data);
             
-            if (mainOrg.length > 0) {
-                const orgLink = mainOrg.find('a').first();
-                const orgName = orgLink.text().trim();
-                const orgHref = orgLink.attr('href');
-                const orgSID = orgHref ? orgHref.split('/')[2] : null;
-                const orgRank = mainOrg.find('.org-rank').text().trim() || 'N/A';
+            // Process main organization
+            const mainOrgElement = org$('.box-content.org.main');
+            let mainOrg = null;
 
-                if (orgSID) {
-                    // Get organization details
-                    const orgResponse = await axios.get(`https://robertsspaceindustries.com/orgs/${orgSID}`, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        }
-                    });
+            if (mainOrgElement.length > 0) {
+                const isRedacted = mainOrgElement.hasClass('visibility-R');
+                
+                if (isRedacted) {
+                    mainOrg = {
+                        name: 'REDACTED',
+                        sid: 'REDACTED',
+                        rank: 'REDACTED',
+                        memberCount: 'REDACTED',
+                        url: null,
+                        logoUrl: null,
+                        isRedacted: true
+                    };
+                } else {
+                    const orgLink = mainOrgElement.find('.info a').first();
+                    const orgName = orgLink.text().trim();
+                    const orgHref = orgLink.attr('href');
+                    const orgSID = orgHref ? orgHref.split('/')[2] : null;
+                    const orgRank = mainOrgElement.find('.info .value:contains("rank")').text().trim() || 'N/A';
+                    const memberCount = mainOrgElement.find('.thumb .members').text().trim().split(' ')[0] || 'Unknown';
+                    const logoUrl = mainOrgElement.find('.thumb img').attr('src');
 
-                    const org$ = cheerio.load(orgResponse.data);
-                    const memberCount = org$('.logo .count').text().trim().split(' ')[0] || 'Unknown';
-
-                    orgInfo = {
+                    mainOrg = {
                         name: orgName,
                         sid: orgSID,
                         rank: orgRank,
                         memberCount: memberCount,
-                        url: `https://robertsspaceindustries.com/orgs/${orgSID}`
+                        url: `https://robertsspaceindustries.com/orgs/${orgSID}`,
+                        logoUrl: logoUrl ? `https://robertsspaceindustries.com${logoUrl}` : null,
+                        isRedacted: false
                     };
                 }
             }
+
+            // Process affiliated organizations
+            const affiliatedOrgs = [];
+            org$('.box-content.org.affiliation').each((i, element) => {
+                const isRedacted = org$(element).hasClass('visibility-R');
+                
+                if (isRedacted) {
+                    affiliatedOrgs.push({
+                        name: 'REDACTED',
+                        sid: 'REDACTED',
+                        rank: 'REDACTED',
+                        memberCount: 'REDACTED',
+                        url: null,
+                        logoUrl: null,
+                        isRedacted: true
+                    });
+                } else {
+                    const orgLink = org$(element).find('.info a').first();
+                    const orgName = orgLink.text().trim();
+                    const orgHref = orgLink.attr('href');
+                    const orgSID = orgHref ? orgHref.split('/')[2] : null;
+                    const orgRank = org$(element).find('.info .value:contains("rank")').text().trim() || 'N/A';
+                    const memberCount = org$(element).find('.thumb .members').text().trim().split(' ')[0] || 'Unknown';
+                    const logoUrl = org$(element).find('.thumb img').attr('src');
+
+                    affiliatedOrgs.push({
+                        name: orgName,
+                        sid: orgSID,
+                        rank: orgRank,
+                        memberCount: memberCount,
+                        url: `https://robertsspaceindustries.com/orgs/${orgSID}`,
+                        logoUrl: logoUrl ? `https://robertsspaceindustries.com${logoUrl}` : null,
+                        isRedacted: false
+                    });
+                }
+            });
 
             // Extract profile data
             const data = {
@@ -62,7 +114,9 @@ class RSIScraper {
                 signupDate,
                 enlisted,
                 location,
-                organization: orgInfo
+                avatarUrl: avatarUrl ? `https://robertsspaceindustries.com${avatarUrl}` : null,
+                mainOrg,
+                affiliatedOrgs
             };
 
             return data;
