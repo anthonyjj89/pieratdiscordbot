@@ -91,6 +91,17 @@ client.on(Events.InteractionCreate, async interaction => {
                 if (command && command.handleCrewNext) {
                     await command.handleCrewNext(interaction);
                 }
+            } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
+                const command = client.commands.get('hits');
+                const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
+                const newPage = interaction.customId === 'prev_page' ? currentPage - 1 : currentPage + 1;
+                
+                await command.handleList({
+                    ...interaction,
+                    options: {
+                        getInteger: () => newPage
+                    }
+                });
             }
             return;
         }
@@ -104,15 +115,43 @@ client.on(Events.InteractionCreate, async interaction => {
                 await command.handleModalSubmit(interaction);
             } else if (interaction.customId === 'shares_modal') {
                 await command.handleSharesSubmit(interaction);
+            } else if (interaction.customId === 'boxes_modal') {
+                const hitsCommand = client.commands.get('hits');
+                if (hitsCommand && hitsCommand.handleBoxesModal) {
+                    await hitsCommand.handleBoxesModal(interaction);
+                }
             }
             return;
         }
 
         // Handle select menus
-        if (interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
-            const command = client.commands.get('lookup');
-            if (command && command.handleCrewSelect) {
-                await command.handleCrewSelect(interaction);
+        if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'commodity_select') {
+                const command = client.commands.get('hits');
+                if (command && command.handleCommoditySelect) {
+                    await command.handleCommoditySelect(interaction);
+                }
+            } else if (interaction.customId === 'location_select') {
+                const command = client.commands.get('hits');
+                if (command && command.handleLocationSelect) {
+                    await command.handleLocationSelect(interaction);
+                }
+            }
+            return;
+        }
+
+        // Handle user select menus
+        if (interaction.isUserSelectMenu()) {
+            if (interaction.customId === 'crew_select') {
+                const command = client.commands.get('hits');
+                if (command && command.handleCrewSelect) {
+                    await command.handleCrewSelect(interaction);
+                }
+            } else if (interaction.customId === 'seller_select') {
+                const command = client.commands.get('hits');
+                if (command && command.handleSellerSelect) {
+                    await command.handleSellerSelect(interaction);
+                }
             }
             return;
         }
