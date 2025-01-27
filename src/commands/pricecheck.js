@@ -8,79 +8,69 @@ module.exports = {
         .addStringOption(option =>
             option.setName('commodity')
                 .setDescription('The commodity to check')
-                .setRequired(true)
-                .addChoices(
-                    { name: 'Laranite', value: 'Laranite' },
-                    { name: 'Agricium', value: 'Agricium' },
-                    { name: 'Titanium', value: 'Titanium' },
-                    { name: 'Diamond', value: 'Diamond' },
-                    { name: 'Gold', value: 'Gold' }
-                )),
+                .setRequired(true)),
 
     async execute(interaction) {
         await interaction.deferReply();
 
         try {
-            const commodity = interaction.options.getString('commodity');
-            const prices = await tradeScraper.getPrices(commodity);
+            const commodityName = interaction.options.getString('commodity').toUpperCase();
+            
+            // Get list of commodities to find the one requested
+            const commodities = await tradeScraper.getCommodities();
+            const commodity = commodities.find(c => 
+                c.code === commodityName || 
+                c.name.toUpperCase() === commodityName ||
+                c.name.toUpperCase().includes(commodityName)
+            );
 
+            if (!commodity) {
+                await interaction.editReply(`Could not find commodity: ${commodityName}`);
+                return;
+            }
+
+            // Get prices for this commodity
+            const prices = await tradeScraper.getPrices(commodity.value);
+            
+            // Create embed with price info
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle(`Prices for ${commodity}`)
-                .setTimestamp();
-
-            // Add buy locations
-            if (prices.buyLocations && prices.buyLocations.length > 0) {
-                const buyLocationsText = prices.buyLocations
-                    .sort((a, b) => a.price - b.price)
-                    .map(loc => `${loc.location}: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`)
-                    .join('\n');
-
-                embed.addFields({
-                    name: 'Buy Locations',
-                    value: buyLocationsText,
-                    inline: false
-                });
-            }
-
-            // Add sell locations
-            if (prices.sellLocations && prices.sellLocations.length > 0) {
-                const sellLocationsText = prices.sellLocations
-                    .sort((a, b) => b.price - a.price)
-                    .map(loc => `${loc.location}: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`)
-                    .join('\n');
-
-                embed.addFields({
-                    name: 'Sell Locations',
-                    value: sellLocationsText,
-                    inline: false
-                });
-            }
-
-            // Add box information
-            if (prices.boxInfo) {
-                const boxInfoText = [
-                    `Units per box: ${prices.boxInfo.unitsPerBox.toLocaleString()}`,
-                    `Buy price per box: ${tradeScraper.formatPrice(prices.boxInfo.buyPrice)} aUEC`,
-                    `Sell price per box: ${tradeScraper.formatPrice(prices.boxInfo.sellPrice)} aUEC`,
-                    `Profit per box: ${tradeScraper.formatPrice(prices.boxInfo.profit)} aUEC`
-                ].join('\n');
-
-                embed.addFields({
-                    name: 'Box Information',
-                    value: boxInfoText,
-                    inline: false
-                });
-            }
+                .setTitle(`Prices for ${commodity.name}`)
+                .setDescription(`Last updated: ${new Date().toLocaleString()}`)
+                .addFields(
+                    { 
+                        name: '💰 Best Price', 
+                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                        inline: false 
+                    },
+                    { 
+                        name: '📊 Average Price', 
+                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        inline: false 
+                    },
+                    {
+                        name: '📍 Other Locations',
+                        value: prices.allLocations
+                            .slice(1, 4) // Show next 3 best locations
+                            .map(loc => `${tradeScraper.formatLocationName(loc.name)}: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`)
+                            .join('\n'),
+                        inline: false
+                    },
+                    {
+                        name: '📦 Box Information',
+                        value: [
+                            `Units per box: ${prices.boxInfo.unitsPerBox}`,
+                            `Buy price per box: ${tradeScraper.formatPrice(prices.bestLocation.price * prices.boxInfo.unitsPerBox)} aUEC`
+                        ].join('\n'),
+                        inline: false
+                    }
+                );
 
             await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
-            console.error('Error checking prices:', error);
-            await interaction.editReply({
-                content: 'An error occurred while fetching prices. The price service might be unavailable.',
-                ephemeral: true
-            });
+            console.error('Error in pricecheck command:', error);
+            await interaction.editReply('An error occurred while checking prices.');
         }
     }
 };

@@ -56,7 +56,8 @@ module.exports = {
                 .addOptions(
                     commodities.map(commodity => ({
                         label: commodity.name,
-                        value: commodity.value || commodity.name
+                        value: commodity.value || commodity.name,
+                        description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
                     }))
                 );
 
@@ -90,25 +91,28 @@ module.exports = {
         try {
             // Get prices for selected commodity
             const prices = await tradeScraper.getPrices(reportData.commodity);
-            
-            // Create location select menu
-            const locationSelect = new StringSelectMenuBuilder()
-                .setCustomId('location_select')
-                .setPlaceholder('Select selling location')
-                .addOptions(
-                    prices.sellLocations.map(loc => ({
-                        label: `${loc.location} (${tradeScraper.formatPrice(loc.price)} aUEC)`,
-                        value: loc.location,
-                        description: `Current price: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`
-                    }))
-                );
-
-            // Store prices for later
             reportData.prices = prices;
+
+            // Create price info embed
+            const priceEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle(`Current Prices for ${reportData.commodity}`)
+                .addFields(
+                    { 
+                        name: '💰 Best Price', 
+                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                        inline: false 
+                    },
+                    { 
+                        name: '📊 Average Price', 
+                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        inline: false 
+                    }
+                );
 
             // Create box count modal
             const modal = new ModalBuilder()
-                .setCustomId('boxes_modal')
+                .setCustomId('cargo_details_modal')
                 .setTitle('Cargo Details');
 
             const boxesInput = new TextInputBuilder()
@@ -116,6 +120,22 @@ module.exports = {
                 .setLabel('How many boxes?')
                 .setStyle(TextInputStyle.Short)
                 .setPlaceholder('e.g., 50')
+                .setRequired(true);
+
+            const priceInput = new TextInputBuilder()
+                .setCustomId('price')
+                .setLabel('Price per unit (aUEC)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder(`e.g., ${prices.bestLocation.price}`)
+                .setValue(prices.bestLocation.price.toString())
+                .setRequired(true);
+
+            const locationInput = new TextInputBuilder()
+                .setCustomId('location')
+                .setLabel('Where will you sell?')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder(prices.bestLocation.name)
+                .setValue(prices.bestLocation.name)
                 .setRequired(true);
 
             const notesInput = new TextInputBuilder()
@@ -127,9 +147,13 @@ module.exports = {
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(boxesInput),
+                new ActionRowBuilder().addComponents(priceInput),
+                new ActionRowBuilder().addComponents(locationInput),
                 new ActionRowBuilder().addComponents(notesInput)
             );
 
+            await interaction.reply({ embeds: [priceEmbed], ephemeral: true });
+            await interaction.followUp({ content: 'Step 2: Enter cargo details', components: [], ephemeral: true });
             await interaction.showModal(modal);
 
         } catch (error) {
@@ -141,9 +165,11 @@ module.exports = {
         }
     },
 
-    async handleBoxesModal(interaction) {
+    async handleCargoDetails(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
         const boxes = parseInt(interaction.fields.getTextInputValue('boxes'));
+        const price = parseFloat(interaction.fields.getTextInputValue('price'));
+        const location = interaction.fields.getTextInputValue('location');
         const notes = interaction.fields.getTextInputValue('notes');
 
         if (isNaN(boxes) || boxes <= 0) {
@@ -154,42 +180,21 @@ module.exports = {
             return;
         }
 
+        if (isNaN(price) || price <= 0) {
+            await interaction.reply({
+                content: 'Please enter a valid price.',
+                ephemeral: true
+            });
+            return;
+        }
+
         reportData.boxes = boxes;
+        reportData.price = price;
+        reportData.location = location;
         reportData.notes = notes;
 
-        // Show location selection
-        const locationSelect = new StringSelectMenuBuilder()
-            .setCustomId('location_select')
-            .setPlaceholder('Select selling location')
-            .addOptions(
-                reportData.prices.sellLocations.map(loc => ({
-                    label: `${loc.location} (${tradeScraper.formatPrice(loc.price)} aUEC)`,
-                    value: loc.location,
-                    description: `Current price: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`
-                }))
-            );
-
-        const row = new ActionRowBuilder().addComponents(locationSelect);
-
-        await interaction.reply({
-            content: 'Step 2: Select where you plan to sell the cargo',
-            components: [row],
-            ephemeral: true
-        });
-    },
-
-    async handleLocationSelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        const location = interaction.values[0];
-        const locationPrice = reportData.prices.sellLocations.find(
-            loc => loc.location === location
-        ).price;
-
-        reportData.location = location;
-        reportData.price = locationPrice;
-
         // Calculate total value
-        const totalValue = reportData.boxes * reportData.prices.boxInfo.unitsPerBox * locationPrice;
+        const totalValue = boxes * reportData.prices.boxInfo.unitsPerBox * price;
 
         // Create crew selection
         const crewSelect = new UserSelectMenuBuilder()
@@ -207,11 +212,12 @@ module.exports = {
                 { name: 'Target', value: reportData.target, inline: true },
                 { name: 'Cargo', value: `${reportData.boxes} boxes of ${reportData.commodity}`, inline: true },
                 { name: 'Selling At', value: location, inline: true },
-                { name: 'Current Value', value: `${tradeScraper.formatPrice(totalValue)} aUEC`, inline: false }
+                { name: 'Price', value: `${price.toFixed(2)} aUEC/unit`, inline: true },
+                { name: 'Total Value', value: `${tradeScraper.formatPrice(totalValue)} aUEC`, inline: false }
             );
 
-        if (reportData.notes) {
-            embed.addFields({ name: 'Notes', value: reportData.notes, inline: false });
+        if (notes) {
+            embed.addFields({ name: 'Notes', value: notes, inline: false });
         }
 
         await interaction.reply({
@@ -284,7 +290,8 @@ module.exports = {
                     { name: 'Target', value: reportData.target, inline: true },
                     { name: 'Cargo', value: `${reportData.boxes} boxes of ${reportData.commodity}`, inline: true },
                     { name: 'Selling At', value: reportData.location, inline: true },
-                    { name: 'Current Value', value: `${tradeScraper.formatPrice(totalValue)} aUEC`, inline: false },
+                    { name: 'Price', value: `${reportData.price.toFixed(2)} aUEC/unit`, inline: true },
+                    { name: 'Total Value', value: `${tradeScraper.formatPrice(totalValue)} aUEC`, inline: false },
                     {
                         name: 'Crew',
                         value: reportData.crew.map(userId => {
@@ -334,7 +341,7 @@ module.exports = {
                 .setTimestamp();
 
             for (const report of reports) {
-                const totalValue = report.boxes * report.current_price;
+                const totalValue = report.boxes * 100 * report.current_price;
                 const crewList = report.crew.map(member => {
                     const isSeller = member.userId === report.seller_id;
                     return `<@${member.userId}> - ${tradeScraper.formatPrice(totalValue * member.share)} aUEC${isSeller ? ' (Seller)' : ''}`;
@@ -343,7 +350,8 @@ module.exports = {
                 const fieldValue = [
                     `**Cargo**: ${report.boxes} boxes of ${report.cargo_type}`,
                     `**Location**: ${report.sell_location}`,
-                    `**Value**: ${tradeScraper.formatPrice(totalValue)} aUEC`,
+                    `**Price**: ${report.current_price.toFixed(2)} aUEC/unit`,
+                    `**Total Value**: ${tradeScraper.formatPrice(totalValue)} aUEC`,
                     `**Status**: ${report.status}`,
                     '**Crew**:',
                     crewList

@@ -86,11 +86,6 @@ client.on(Events.InteractionCreate, async interaction => {
                 if (command && command.handleReportButton) {
                     await command.handleReportButton(interaction, username);
                 }
-            } else if (interaction.customId === 'crew_next') {
-                const command = client.commands.get('lookup');
-                if (command && command.handleCrewNext) {
-                    await command.handleCrewNext(interaction);
-                }
             } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
                 const command = client.commands.get('hits');
                 const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
@@ -108,17 +103,15 @@ client.on(Events.InteractionCreate, async interaction => {
 
         // Handle modal submissions
         if (interaction.isModalSubmit()) {
-            const command = client.commands.get('lookup');
-            if (!command) return;
-
             if (interaction.customId.startsWith('piracy_report_')) {
-                await command.handleModalSubmit(interaction);
-            } else if (interaction.customId === 'shares_modal') {
-                await command.handleSharesSubmit(interaction);
-            } else if (interaction.customId === 'boxes_modal') {
-                const hitsCommand = client.commands.get('hits');
-                if (hitsCommand && hitsCommand.handleBoxesModal) {
-                    await hitsCommand.handleBoxesModal(interaction);
+                const command = client.commands.get('lookup');
+                if (command && command.handleModalSubmit) {
+                    await command.handleModalSubmit(interaction);
+                }
+            } else if (interaction.customId === 'cargo_details_modal') {
+                const command = client.commands.get('hits');
+                if (command && command.handleCargoDetails) {
+                    await command.handleCargoDetails(interaction);
                 }
             }
             return;
@@ -130,11 +123,6 @@ client.on(Events.InteractionCreate, async interaction => {
                 const command = client.commands.get('hits');
                 if (command && command.handleCommoditySelect) {
                     await command.handleCommoditySelect(interaction);
-                }
-            } else if (interaction.customId === 'location_select') {
-                const command = client.commands.get('hits');
-                if (command && command.handleLocationSelect) {
-                    await command.handleLocationSelect(interaction);
                 }
             }
             return;
