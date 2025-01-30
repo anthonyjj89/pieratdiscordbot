@@ -12,10 +12,7 @@ const {
 } = require('discord.js');
 const scraper = require('../services/scraper');
 const embedBuilder = require('../utils/embedBuilder');
-const { 
-    getRecentPiracyHits, 
-    getPiracyHistory 
-} = require('../services/database');
+const database = require('../services/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -38,8 +35,8 @@ module.exports = {
 
             // Main profile embed
             // Get piracy data
-            const recentPiracy = await getRecentPiracyHits(profileData.handle);
-            const piracyHistory = await getPiracyHistory(profileData.handle, false, 3);
+            const recentPiracy = await database.getRecentPiracyHits(profileData.handle);
+            const piracyHistory = await database.getPiracyHistory(profileData.handle, false, 3);
 
             // Create main embed with piracy info
             const mainEmbed = new EmbedBuilder()
