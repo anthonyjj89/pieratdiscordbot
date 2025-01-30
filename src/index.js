@@ -84,6 +84,8 @@ client.on(Events.InteractionCreate, async interaction => {
             if (interaction.customId === 'report_piracy') {
                 const username = interaction.message.embeds[0].title.split(': ')[1];
                 await command.handleReportButton(interaction, username);
+            } else if (interaction.customId === 'crew_next') {
+                await command.handleCrewNext(interaction);
             } else if (interaction.customId === 'confirm_shares') {
                 await command.handleConfirmShares(interaction);
             } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {

@@ -359,28 +359,22 @@ module.exports = {
         // Step 2: Show crew selection
         const crewSelect = new UserSelectMenuBuilder()
             .setCustomId('crew_select')
-            .setPlaceholder('Select crew members')
+            .setPlaceholder('Select crew member')
             .setMinValues(1)
-            .setMaxValues(5);
-
-        const nextButton = new ButtonBuilder()
-            .setCustomId('crew_next')
-            .setLabel('Calculate Shares')
-            .setStyle(ButtonStyle.Primary);
+            .setMaxValues(1);
 
         const crewRow = new ActionRowBuilder().addComponents(crewSelect);
-        const buttonRow = new ActionRowBuilder().addComponents(nextButton);
 
         await interaction.reply({
-            content: 'Step 2: Select crew members',
-            components: [crewRow, buttonRow],
+            content: 'Step 2: Select a crew member',
+            components: [crewRow],
             ephemeral: true
         });
     },
 
     async handleCrewSelect(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
-        const selectedUser = interaction.values[0]; // Single user selection
+        const selectedUser = interaction.values[0];
 
         // Create role selection menu for the selected user
         const roleSelect = new StringSelectMenuBuilder()
@@ -401,13 +395,12 @@ module.exports = {
         }
 
         const roleRow = new ActionRowBuilder().addComponents(roleSelect);
-        const crewRow = interaction.message.components[0]; // Keep crew selection
-        const buttonRow = interaction.message.components[1]; // Keep next button
 
         const user = interaction.client.users.cache.get(selectedUser);
         await interaction.update({
-            content: `Select role for ${user.username}. Then select more crew or click Calculate Shares when done.`,
-            components: [crewRow, roleRow, buttonRow]
+            content: `Select role for ${user.username}`,
+            components: [roleRow],
+            ephemeral: true
         });
     },
 
@@ -422,10 +415,25 @@ module.exports = {
             member.role = selectedRole;
         }
 
+        // Create new crew selection with buttons
+        const crewSelect = new UserSelectMenuBuilder()
+            .setCustomId('crew_select')
+            .setPlaceholder('Select another crew member')
+            .setMinValues(1)
+            .setMaxValues(1);
+
+        const calculateButton = new ButtonBuilder()
+            .setCustomId('crew_next')
+            .setLabel('Calculate Shares')
+            .setStyle(ButtonStyle.Primary);
+
+        const crewRow = new ActionRowBuilder().addComponents(crewSelect);
+        const buttonRow = new ActionRowBuilder().addComponents(calculateButton);
+
         const user = interaction.client.users.cache.get(userId);
         await interaction.update({
-            content: `Role set for ${user.username}. Select more crew or click Calculate Shares when done.`,
-            components: interaction.message.components
+            content: `Role set for ${user.username}. Select another crew member or click Calculate Shares when done.`,
+            components: [crewRow, buttonRow]
         });
     },
 
