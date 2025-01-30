@@ -57,7 +57,10 @@ client.on(Events.InteractionCreate, async interaction => {
     try {
         // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
-            const command = client.commands.get(interaction.commandName);
+            const command = interaction.commandName === 'hits' ? 
+                client.commands.get('hits') : 
+                client.commands.get(interaction.commandName);
+            
             if (!command) return;
 
             try {
@@ -93,27 +96,33 @@ client.on(Events.InteractionCreate, async interaction => {
 
         // Handle button clicks
         if (interaction.isButton()) {
-            const command = client.commands.get('lookup');
+            const lookupCommand = client.commands.get('lookup');
             const helpCommand = client.commands.get('help');
+            const hitsCommand = client.commands.get('hits');
 
-            if (interaction.customId.startsWith('cmd_')) {
-                await helpCommand.handleButton(interaction);
-            } else if (interaction.customId === 'report_piracy') {
-                const username = interaction.message.embeds[0].title.split(': ')[1];
-                await command.handleReportButton(interaction, username);
-            } else if (interaction.customId === 'crew_next') {
-                await command.handleCrewNext(interaction);
-            } else if (interaction.customId === 'confirm_shares') {
-                await command.handleConfirmShares(interaction);
-            } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
-                const hitsCommand = client.commands.get('hits');
-                const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
-                const newPage = interaction.customId === 'prev_page' ? currentPage - 1 : currentPage + 1;
-                await hitsCommand.handleList({
-                    ...interaction,
-                    options: {
-                        getInteger: () => newPage
-                    }
+            try {
+                if (interaction.customId.startsWith('cmd_')) {
+                    await helpCommand.handleButton(interaction);
+                } else if (interaction.customId === 'report_piracy') {
+                    const username = interaction.message.embeds[0].title.split(': ')[1];
+                    await lookupCommand.handleReportButton(interaction, username);
+                } else if (interaction.customId === 'confirm_shares') {
+                    await lookupCommand.handleConfirmShares(interaction);
+                } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
+                    const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
+                    const newPage = interaction.customId === 'prev_page' ? currentPage - 1 : currentPage + 1;
+                    await hitsCommand.handleList({
+                        ...interaction,
+                        options: {
+                            getInteger: () => newPage
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error handling button:', error);
+                await interaction.reply({
+                    content: 'An error occurred while processing the button click.',
+                    ephemeral: true
                 });
             }
             return;
@@ -121,50 +130,82 @@ client.on(Events.InteractionCreate, async interaction => {
 
         // Handle modal submissions
         if (interaction.isModalSubmit()) {
-            const command = client.commands.get('lookup');
+            const lookupCommand = client.commands.get('lookup');
             const helpCommand = client.commands.get('help');
 
-            if (interaction.customId.startsWith('help_')) {
-                await helpCommand.handleModalSubmit(interaction);
-            } else if (interaction.customId.startsWith('piracy_report_')) {
-                await command.handleModalSubmit(interaction);
-            } else if (interaction.customId === 'cargo_details_modal') {
-                const hitsCommand = client.commands.get('hits');
-                await hitsCommand.handleCargoDetails(interaction);
+            try {
+                if (interaction.customId.startsWith('help_')) {
+                    await helpCommand.handleModalSubmit(interaction);
+                } else if (interaction.customId === 'cargo_details_modal') {
+                    await lookupCommand.handleCargoDetails(interaction);
+                }
+            } catch (error) {
+                console.error('Error handling modal submit:', error);
+                await interaction.reply({
+                    content: 'An error occurred while processing the form.',
+                    ephemeral: true
+                });
             }
             return;
         }
 
         // Handle select menus
         if (interaction.isStringSelectMenu()) {
-            const command = client.commands.get('lookup');
-            if (interaction.customId.startsWith('role_select_')) {
-                await command.handleRoleSelect(interaction);
-            } else if (interaction.customId === 'commodity_select') {
-                const hitsCommand = client.commands.get('hits');
-                await hitsCommand.handleCommoditySelect(interaction);
+            const lookupCommand = client.commands.get('lookup');
+
+            try {
+                if (interaction.customId === 'commodity_select') {
+                    await lookupCommand.handleCommoditySelect(interaction);
+                } else if (interaction.customId.startsWith('role_select_')) {
+                    await lookupCommand.handleRoleSelect(interaction);
+                }
+            } catch (error) {
+                console.error('Error handling select menu:', error);
+                await interaction.reply({
+                    content: 'An error occurred while processing your selection.',
+                    ephemeral: true
+                });
             }
             return;
         }
 
         // Handle user select menus
         if (interaction.isUserSelectMenu()) {
-            const command = client.commands.get('lookup');
+            const lookupCommand = client.commands.get('lookup');
             const helpCommand = client.commands.get('help');
 
-            if (interaction.customId === 'help_pay_user_select') {
-                await helpCommand.handleUserSelect(interaction);
-            } else if (interaction.customId === 'crew_select') {
-                await command.handleCrewSelect(interaction);
-            } else if (interaction.customId === 'seller_select') {
-                const hitsCommand = client.commands.get('hits');
-                await hitsCommand.handleSellerSelect(interaction);
+            try {
+                if (interaction.customId === 'help_pay_user_select') {
+                    await helpCommand.handleUserSelect(interaction);
+                } else if (interaction.customId === 'crew_select') {
+                    await lookupCommand.handleCrewSelect(interaction);
+                }
+            } catch (error) {
+                console.error('Error handling user select:', error);
+                await interaction.reply({
+                    content: 'An error occurred while processing user selection.',
+                    ephemeral: true
+                });
             }
             return;
         }
 
     } catch (error) {
         console.error('Interaction error:', error);
+        try {
+            const errorReply = {
+                content: 'An unexpected error occurred. Please try again.',
+                ephemeral: true
+            };
+            
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp(errorReply);
+            } else {
+                await interaction.reply(errorReply);
+            }
+        } catch (replyError) {
+            console.error('Error sending error message:', replyError);
+        }
     }
 });
 

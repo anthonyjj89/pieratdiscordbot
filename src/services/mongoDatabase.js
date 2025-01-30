@@ -79,10 +79,12 @@ class MongoDatabaseService {
             await mongoose.connect(process.env.MONGODB_URI, {
                 ssl: true,
                 tls: true,
-                tlsAllowInvalidCertificates: false,
+                tlsAllowInvalidCertificates: true,
                 retryWrites: true,
                 w: 'majority',
-                serverSelectionTimeoutMS: 15000
+                serverSelectionTimeoutMS: 15000,
+                connectTimeoutMS: 10000,
+                socketTimeoutMS: 45000
             });
             console.log('Connected to MongoDB');
         } catch (error) {
