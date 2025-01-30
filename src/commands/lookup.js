@@ -12,7 +12,10 @@ const {
 } = require('discord.js');
 const scraper = require('../services/scraper');
 const embedBuilder = require('../utils/embedBuilder');
-const database = require('../services/database');
+const { 
+    getRecentPiracyHits, 
+    getPiracyHistory 
+} = require('../services/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -34,11 +37,25 @@ module.exports = {
             const embeds = [];
 
             // Main profile embed
+            // Get piracy data
+            const recentPiracy = await getRecentPiracyHits(profileData.handle);
+            const piracyHistory = await getPiracyHistory(profileData.handle, false, 3);
+
+            // Create main embed with piracy info
             const mainEmbed = new EmbedBuilder()
                 .setColor('#2f3136')
                 .setTitle(`Star Citizen Profile: ${profileData.handle}`)
                 .setURL(`https://robertsspaceindustries.com/citizens/${profileData.handle}`)
-                .setTimestamp();
+                .setTimestamp()
+                .addFields(
+                    {
+                        name: 'Piracy History',
+                        value: recentPiracy.total_hits > 0 
+                            ? `🚨 ${recentPiracy.total_hits} recorded hits\nLast incident: ${new Date(recentPiracy.last_hit).toLocaleDateString()}`
+                            : '✅ Clean record',
+                        inline: true
+                    }
+                );
 
             // Set user avatar
             if (profileData.avatarUrl) {
@@ -56,8 +73,23 @@ module.exports = {
                 mainEmbed.addFields({ 
                     name: 'Location', 
                     value: profileData.location, 
-                    inline: false 
+                    inline: true 
                 });
+            }
+
+            // Add detailed piracy history if exists
+            if (piracyHistory.length > 0) {
+                const historyDetails = piracyHistory.map((hit, index) => 
+                    `**${index + 1}.** ${new Date(hit.hit_date).toLocaleDateString()} - ${hit.details || 'No details'}`
+                ).join('\n');
+
+                const historyEmbed = new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle('Recent Piracy Incidents')
+                    .setDescription(historyDetails)
+                    .setFooter({ text: 'Last 3 recorded incidents' });
+
+                embeds.push(historyEmbed);
             }
 
             // Add main org info

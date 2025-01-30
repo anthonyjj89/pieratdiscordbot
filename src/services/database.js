@@ -51,6 +51,21 @@ class DatabaseService {
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
             );
+
+            -- Piracy tracking tables
+            CREATE TABLE IF NOT EXISTS user_piracy_hits (
+                user_id TEXT NOT NULL,
+                hit_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                details TEXT,
+                PRIMARY KEY (user_id, hit_date)
+            );
+
+            CREATE TABLE IF NOT EXISTS org_piracy_hits (
+                org_id TEXT NOT NULL,
+                hit_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                details TEXT,
+                PRIMARY KEY (org_id, hit_date)
+            );
         `;
 
         return new Promise((resolve, reject) => {
@@ -290,6 +305,55 @@ class DatabaseService {
                         total_received: 0 
                     });
                 }
+            });
+        });
+    }
+
+    // Piracy tracking methods
+    async addPiracyHit(targetId, isOrg = false, details = '') {
+        const table = isOrg ? 'org_piracy_hits' : 'user_piracy_hits';
+        const sql = `
+            INSERT INTO ${table} (${isOrg ? 'org_id' : 'user_id'}, details)
+            VALUES (?, ?)
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.run(sql, [targetId, details], function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        });
+    }
+
+    async getPiracyHistory(targetId, isOrg = false, limit = 5) {
+        const table = isOrg ? 'org_piracy_hits' : 'user_piracy_hits';
+        const sql = `
+            SELECT * FROM ${table}
+            WHERE ${isOrg ? 'org_id' : 'user_id'} = ?
+            ORDER BY hit_date DESC
+            LIMIT ?
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.all(sql, [targetId, limit], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    }
+
+    async getRecentPiracyHits(targetId, isOrg = false) {
+        const sql = `
+            SELECT COUNT(*) as total_hits, 
+                   MAX(hit_date) as last_hit
+            FROM ${isOrg ? 'org_piracy_hits' : 'user_piracy_hits'}
+            WHERE ${isOrg ? 'org_id' : 'user_id'} = ?
+        `;
+
+        return new Promise((resolve, reject) => {
+            this.db.get(sql, [targetId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row || { total_hits: 0, last_hit: null });
             });
         });
     }
