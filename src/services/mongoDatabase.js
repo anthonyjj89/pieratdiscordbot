@@ -82,7 +82,6 @@ class MongoDatabaseService {
     async connect() {
         try {
             await mongoose.connect(process.env.MONGODB_URI, {
-                ssl: true,
                 tls: true,
                 tlsAllowInvalidCertificates: true,
                 retryWrites: true,
