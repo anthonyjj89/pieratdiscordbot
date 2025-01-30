@@ -342,13 +342,17 @@ class DatabaseService {
         if (isOrg) {
             const sql = `
                 SELECT 
-                    org_piracy_hits.*,
-                    user_piracy_hits.details as member_hit_details,
-                    user_piracy_hits.hit_date as member_hit_date
-                FROM org_piracy_hits
-                LEFT JOIN user_piracy_hits ON user_piracy_hits.user_id = org_piracy_hits.member_handle
-                WHERE org_id = ?
-                ORDER BY hit_date DESC
+                    oh.org_id,
+                    oh.hit_date,
+                    oh.details,
+                    oh.member_handle,
+                    uh.details as member_hit_details,
+                    uh.hit_date as member_hit_date,
+                    uh.org_id as member_org_id
+                FROM org_piracy_hits oh
+                LEFT JOIN user_piracy_hits uh ON uh.user_id = oh.member_handle
+                WHERE oh.org_id = ?
+                ORDER BY oh.hit_date DESC
                 LIMIT ?
             `;
             return new Promise((resolve, reject) => {
@@ -360,13 +364,17 @@ class DatabaseService {
         } else {
             const sql = `
                 SELECT 
-                    user_piracy_hits.*,
-                    org_piracy_hits.details as org_hit_details,
-                    org_piracy_hits.hit_date as org_hit_date
-                FROM user_piracy_hits
-                LEFT JOIN org_piracy_hits ON org_piracy_hits.org_id = user_piracy_hits.org_id
-                WHERE user_id = ?
-                ORDER BY hit_date DESC
+                    uh.user_id,
+                    uh.hit_date,
+                    uh.details,
+                    uh.org_id,
+                    oh.details as org_hit_details,
+                    oh.hit_date as org_hit_date,
+                    oh.member_handle as org_member_handle
+                FROM user_piracy_hits uh
+                LEFT JOIN org_piracy_hits oh ON oh.org_id = uh.org_id
+                WHERE uh.user_id = ?
+                ORDER BY uh.hit_date DESC
                 LIMIT ?
             `;
             return new Promise((resolve, reject) => {
@@ -383,10 +391,10 @@ class DatabaseService {
             const sql = `
                 SELECT 
                     COUNT(*) as total_hits,
-                    MAX(hit_date) as last_hit,
-                    COUNT(DISTINCT member_handle) as unique_members_hit
-                FROM org_piracy_hits
-                WHERE org_id = ?
+                    MAX(oh.hit_date) as last_hit,
+                    COUNT(DISTINCT oh.member_handle) as unique_members_hit
+                FROM org_piracy_hits oh
+                WHERE oh.org_id = ?
             `;
             return new Promise((resolve, reject) => {
                 this.db.get(sql, [targetId], (err, row) => {
@@ -398,10 +406,10 @@ class DatabaseService {
             const sql = `
                 SELECT 
                     COUNT(*) as total_hits,
-                    MAX(hit_date) as last_hit,
-                    COUNT(DISTINCT org_id) as orgs_involved
-                FROM user_piracy_hits
-                WHERE user_id = ?
+                    MAX(uh.hit_date) as last_hit,
+                    COUNT(DISTINCT uh.org_id) as orgs_involved
+                FROM user_piracy_hits uh
+                WHERE uh.user_id = ?
             `;
             return new Promise((resolve, reject) => {
                 this.db.get(sql, [targetId], (err, row) => {
