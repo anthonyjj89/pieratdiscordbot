@@ -363,50 +363,68 @@ module.exports = {
             .setMinValues(1)
             .setMaxValues(5);
 
-        const roleSelect = new StringSelectMenuBuilder()
-            .setCustomId('role_select')
-            .setPlaceholder('Select roles')
-            .addOptions([
-                { label: 'Pilot', value: 'pilot', description: 'Flew the ship' },
-                { label: 'Gunner', value: 'gunner', description: 'Operated weapons' },
-                { label: 'Storage', value: 'storage', description: 'Storing the cargo' }
-            ]);
-
         const nextButton = new ButtonBuilder()
             .setCustomId('crew_next')
-            .setLabel('Next: Set Shares')
+            .setLabel('Calculate Shares')
             .setStyle(ButtonStyle.Primary);
 
         const crewRow = new ActionRowBuilder().addComponents(crewSelect);
-        const roleRow = new ActionRowBuilder().addComponents(roleSelect);
         const buttonRow = new ActionRowBuilder().addComponents(nextButton);
 
         await interaction.reply({
-            content: 'Step 2: Select crew members and their roles',
-            components: [crewRow, roleRow, buttonRow],
+            content: 'Step 2: Select crew members',
+            components: [crewRow, buttonRow],
             ephemeral: true
         });
     },
 
     async handleCrewSelect(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
-        const selectedUsers = interaction.values;
-        const role = interaction.message.components[1].components[0].options.find(
-            opt => opt.value === interaction.values[0]
-        )?.label;
+        const selectedUser = interaction.values[0]; // Single user selection
+
+        // Create role selection menu for the selected user
+        const roleSelect = new StringSelectMenuBuilder()
+            .setCustomId(`role_select_${selectedUser}`)
+            .setPlaceholder('Select role for this crew member')
+            .addOptions([
+                { label: 'General Crew', value: 'general_crew', description: 'Standard crew member (1.0 share)' },
+                { label: 'Pilot', value: 'pilot', description: 'Flew the ship (0.8 share)' },
+                { label: 'Gunner', value: 'gunner', description: 'Operated weapons (0.8 share)' },
+                { label: 'Boarder', value: 'boarder', description: 'Boarded target ship (1.2 share)' },
+                { label: 'Escort', value: 'escort', description: 'Provided security (1.1 share)' },
+                { label: 'Storage', value: 'storage', description: 'Storing the cargo (1.0 share)' }
+            ]);
 
         reportData.crew = reportData.crew || [];
-        selectedUsers.forEach(userId => {
-            const existingMember = reportData.crew.find(m => m.userId === userId);
-            if (existingMember) {
-                existingMember.role = role;
-            } else {
-                reportData.crew.push({ userId, role, share: 0 });
-            }
-        });
+        if (!reportData.crew.find(m => m.userId === selectedUser)) {
+            reportData.crew.push({ userId: selectedUser, role: null });
+        }
 
+        const roleRow = new ActionRowBuilder().addComponents(roleSelect);
+        const crewRow = interaction.message.components[0]; // Keep crew selection
+        const buttonRow = interaction.message.components[1]; // Keep next button
+
+        const user = interaction.client.users.cache.get(selectedUser);
         await interaction.update({
-            content: `Crew members selected with role ${role}. Select more or click Next to set shares.`,
+            content: `Select role for ${user.username}. Then select more crew or click Calculate Shares when done.`,
+            components: [crewRow, roleRow, buttonRow]
+        });
+    },
+
+    async handleRoleSelect(interaction) {
+        const reportData = interaction.client.reportData[interaction.user.id];
+        const userId = interaction.customId.split('_')[2];
+        const selectedRole = interaction.values[0];
+
+        // Update crew member's role
+        const member = reportData.crew.find(m => m.userId === userId);
+        if (member) {
+            member.role = selectedRole;
+        }
+
+        const user = interaction.client.users.cache.get(userId);
+        await interaction.update({
+            content: `Role set for ${user.username}. Select more crew or click Calculate Shares when done.`,
             components: interaction.message.components
         });
     },
@@ -422,55 +440,83 @@ module.exports = {
             return;
         }
 
-        // Step 3: Show share assignment modal
-        const modal = new ModalBuilder()
-            .setCustomId('shares_modal')
-            .setTitle('Set Crew Shares');
-
-        reportData.crew.forEach((member, index) => {
-            const user = interaction.client.users.cache.get(member.userId);
-            const shareInput = new TextInputBuilder()
-                .setCustomId(`share_${index}`)
-                .setLabel(`${user.username} (${member.role}) share %`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter percentage (e.g., 25)')
-                .setRequired(true);
-
-            modal.addComponents(new ActionRowBuilder().addComponents(shareInput));
-        });
-
-        await interaction.showModal(modal);
-    },
-
-    async handleSharesSubmit(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-
-        // Get shares from modal
-        reportData.crew.forEach((member, index) => {
-            const share = parseFloat(interaction.fields.getTextInputValue(`share_${index}`)) / 100;
-            member.share = share;
-        });
-
-        // Validate total shares = 100%
-        const totalShares = reportData.crew.reduce((sum, member) => sum + member.share, 0);
-        if (Math.abs(totalShares - 1) > 0.01) {
+        // Check if all crew members have roles
+        const missingRoles = reportData.crew.filter(member => !member.role);
+        if (missingRoles.length > 0) {
+            const missingUsers = missingRoles
+                .map(m => interaction.client.users.cache.get(m.userId).username)
+                .join(', ');
             await interaction.reply({
-                content: 'Total shares must equal 100%. Please try again.',
+                content: `Please select roles for: ${missingUsers}`,
                 ephemeral: true
             });
             return;
         }
 
+        // Calculate shares based on role ratios
+        const database = require('../services/database');
+        const totalRatios = reportData.crew.reduce((sum, member) => 
+            sum + database.roleRatios[member.role], 0);
+
+        reportData.crew.forEach(member => {
+            member.share = database.roleRatios[member.role] / totalRatios;
+        });
+
+        // Create confirmation embed
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('Crew Shares Calculated')
+            .setDescription('Review the share distribution below:')
+            .addFields(
+                reportData.crew.map(member => {
+                    const user = interaction.client.users.cache.get(member.userId);
+                    const ratio = database.roleRatios[member.role];
+                    return {
+                        name: `${user.username} - ${member.role}`,
+                        value: `Ratio: ${ratio} → ${(member.share * 100).toFixed(1)}% share`,
+                        inline: false
+                    };
+                })
+            );
+
+        const confirmButton = new ButtonBuilder()
+            .setCustomId('confirm_shares')
+            .setLabel('Confirm & Submit Report')
+            .setStyle(ButtonStyle.Success);
+
+        const confirmRow = new ActionRowBuilder().addComponents(confirmButton);
+
+        await interaction.update({
+            content: 'Review calculated shares:',
+            embeds: [embed],
+            components: [confirmRow]
+        });
+    },
+
+    async handleConfirmShares(interaction) {
+        const reportData = interaction.client.reportData[interaction.user.id];
+
         try {
-            // Save the report
+            // Save the report with required fields
             const reportId = await database.addReport({
                 targetHandle: reportData.username,
                 reporterId: interaction.user.id,
                 cargoType: reportData.cargoType,
-                amount: reportData.amount,
+                boxes: reportData.amount,
+                sellLocation: 'TBD', // Will be added in future UEX integration
+                currentPrice: 0,      // Will be added in future UEX integration
                 notes: reportData.notes,
-                guildId: interaction.guildId
+                guildId: interaction.guildId,
+                sellerId: interaction.user.id // Default to reporter for now
             });
+
+            // Add piracy hit record
+            await database.addPiracyHit(
+                reportData.username,
+                false,
+                `Cargo stolen: ${reportData.amount} ${reportData.cargoType}`,
+                null // org_id will be added when UEX integration is done
+            );
 
             // Save crew members
             for (const member of reportData.crew) {

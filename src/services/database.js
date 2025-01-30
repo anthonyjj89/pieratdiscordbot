@@ -29,6 +29,8 @@ class DatabaseService {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 hit_id INTEGER NOT NULL,
                 user_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                role_ratio FLOAT NOT NULL,
                 share FLOAT NOT NULL,
                 FOREIGN KEY (hit_id) REFERENCES reports(id) ON DELETE CASCADE
             );
@@ -112,16 +114,30 @@ class DatabaseService {
         });
     }
 
+    // Role share ratios
+    roleRatios = {
+        general_crew: 1.0,
+        pilot: 0.8,
+        gunner: 0.8,
+        boarder: 1.2,
+        escort: 1.1,
+        storage: 1.0
+    };
+
     async addCrewMember(crewMember) {
+        const roleRatio = this.roleRatios[crewMember.role] || this.roleRatios.general_crew;
+        
         const sql = `
-            INSERT INTO crew_members (hit_id, user_id, share)
-            VALUES (?, ?, ?)
+            INSERT INTO crew_members (hit_id, user_id, role, role_ratio, share)
+            VALUES (?, ?, ?, ?, ?)
         `;
 
         return new Promise((resolve, reject) => {
             this.db.run(sql, [
                 crewMember.hitId,
                 crewMember.userId,
+                crewMember.role,
+                roleRatio,
                 crewMember.share
             ], function(err) {
                 if (err) {

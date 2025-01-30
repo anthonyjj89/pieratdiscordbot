@@ -80,18 +80,17 @@ client.on(Events.InteractionCreate, async interaction => {
 
         // Handle button clicks
         if (interaction.isButton()) {
+            const command = client.commands.get('lookup');
             if (interaction.customId === 'report_piracy') {
                 const username = interaction.message.embeds[0].title.split(': ')[1];
-                const command = client.commands.get('lookup');
-                if (command && command.handleReportButton) {
-                    await command.handleReportButton(interaction, username);
-                }
+                await command.handleReportButton(interaction, username);
+            } else if (interaction.customId === 'confirm_shares') {
+                await command.handleConfirmShares(interaction);
             } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
-                const command = client.commands.get('hits');
+                const hitsCommand = client.commands.get('hits');
                 const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
                 const newPage = interaction.customId === 'prev_page' ? currentPage - 1 : currentPage + 1;
-                
-                await command.handleList({
+                await hitsCommand.handleList({
                     ...interaction,
                     options: {
                         getInteger: () => newPage
@@ -103,43 +102,36 @@ client.on(Events.InteractionCreate, async interaction => {
 
         // Handle modal submissions
         if (interaction.isModalSubmit()) {
+            const command = client.commands.get('lookup');
             if (interaction.customId.startsWith('piracy_report_')) {
-                const command = client.commands.get('lookup');
-                if (command && command.handleModalSubmit) {
-                    await command.handleModalSubmit(interaction);
-                }
+                await command.handleModalSubmit(interaction);
             } else if (interaction.customId === 'cargo_details_modal') {
-                const command = client.commands.get('hits');
-                if (command && command.handleCargoDetails) {
-                    await command.handleCargoDetails(interaction);
-                }
+                const hitsCommand = client.commands.get('hits');
+                await hitsCommand.handleCargoDetails(interaction);
             }
             return;
         }
 
         // Handle select menus
         if (interaction.isStringSelectMenu()) {
-            if (interaction.customId === 'commodity_select') {
-                const command = client.commands.get('hits');
-                if (command && command.handleCommoditySelect) {
-                    await command.handleCommoditySelect(interaction);
-                }
+            const command = client.commands.get('lookup');
+            if (interaction.customId.startsWith('role_select_')) {
+                await command.handleRoleSelect(interaction);
+            } else if (interaction.customId === 'commodity_select') {
+                const hitsCommand = client.commands.get('hits');
+                await hitsCommand.handleCommoditySelect(interaction);
             }
             return;
         }
 
         // Handle user select menus
         if (interaction.isUserSelectMenu()) {
+            const command = client.commands.get('lookup');
             if (interaction.customId === 'crew_select') {
-                const command = client.commands.get('hits');
-                if (command && command.handleCrewSelect) {
-                    await command.handleCrewSelect(interaction);
-                }
+                await command.handleCrewSelect(interaction);
             } else if (interaction.customId === 'seller_select') {
-                const command = client.commands.get('hits');
-                if (command && command.handleSellerSelect) {
-                    await command.handleSellerSelect(interaction);
-                }
+                const hitsCommand = client.commands.get('hits');
+                await hitsCommand.handleSellerSelect(interaction);
             }
             return;
         }
