@@ -9,8 +9,15 @@ class DatabaseService {
     }
 
     async initializeDatabase() {
-        // Drop and recreate crew_members table
-        const dropTable = `DROP TABLE IF EXISTS crew_members;`;
+        // Drop all tables
+        const dropTables = `
+            DROP TABLE IF EXISTS crew_members;
+            DROP TABLE IF EXISTS user_piracy_hits;
+            DROP TABLE IF EXISTS org_piracy_hits;
+            DROP TABLE IF EXISTS reports;
+            DROP TABLE IF EXISTS storage;
+            DROP TABLE IF EXISTS payments;
+        `;
         
         const createTables = `
             CREATE TABLE IF NOT EXISTS reports (
@@ -76,9 +83,9 @@ class DatabaseService {
         `;
 
         return new Promise((resolve, reject) => {
-            this.db.exec(dropTable, (dropErr) => {
+            this.db.exec(dropTables, (dropErr) => {
                 if (dropErr) {
-                    console.error('Error dropping crew_members table:', dropErr);
+                    console.error('Error dropping tables:', dropErr);
                     reject(dropErr);
                     return;
                 }
@@ -94,6 +101,16 @@ class DatabaseService {
             });
         });
     }
+
+    // Role share ratios
+    roleRatios = {
+        general_crew: 1.0,
+        pilot: 0.8,
+        gunner: 0.8,
+        boarder: 1.2,
+        escort: 1.1,
+        storage: 1.0
+    };
 
     async addReport(report) {
         const sql = `
@@ -124,16 +141,6 @@ class DatabaseService {
             });
         });
     }
-
-    // Role share ratios
-    roleRatios = {
-        general_crew: 1.0,
-        pilot: 0.8,
-        gunner: 0.8,
-        boarder: 1.2,
-        escort: 1.1,
-        storage: 1.0
-    };
 
     async addCrewMember(crewMember) {
         const roleRatio = this.roleRatios[crewMember.role] || this.roleRatios.general_crew;

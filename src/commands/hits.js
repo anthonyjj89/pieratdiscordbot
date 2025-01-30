@@ -14,33 +14,24 @@ const database = require('../services/database');
 const tradeScraper = require('../services/tradeScraper');
 const scraper = require('../services/scraper');
 
-// Common trade goods (limited to 25 for Discord's select menu limit)
+// All trade commodities from UEX
 const COMMON_COMMODITIES = [
-    'SLAM',
-    'WIDOW',
-    'ETAM',
-    'NEON',
-    'STIMS',
-    'DISTILLED_SPIRITS',
-    'MEDICAL_SUPPLIES',
-    'PROCESSED_FOOD',
-    'WASTE',
-    'SCRAP',
-    'AGRICIUM',
-    'LARANITE',
-    'TITANIUM',
-    'DIAMOND',
-    'GOLD',
-    'BERYL',
-    'QUARTZ',
-    'ALUMINUM',
-    'TUNGSTEN',
-    'COPPER',
-    'ASTATINE',
-    'CHLORINE',
-    'HYDROGEN',
-    'FLUORINE',
-    'IODINE'
+    // Row 1
+    'ACCO', 'AGRI', 'AGRS', 'AUTR', 'ALUM', 'AMIP', 'APHO', 'ARGO', 'ASTA', 'AUDI', 'BERY', 'BEXA',
+    // Row 2
+    'BIOPL', 'BORA', 'CARB', 'CSIL', 'CHLO', 'CK13', 'COMP', 'CMAT', 'COPP', 'CORU', 'DEGR', 'DIAM',
+    // Row 3
+    'DIAL', 'DILU', 'DIST', 'DOLI', 'DYMA', 'DYNF', 'ETAM', 'FFOO', 'FLUO', 'GAWE', 'GOLD', 'GOLM',
+    // Row 4
+    'HADA', 'HOT', 'HELI', 'HEPH', 'HPMC', 'HFBA', 'HYDR', 'HYDF', 'IODI', 'IRON', 'JANA', 'KOPH',
+    // Row 5
+    'LARA', 'LUMG', 'MARG', 'MAZE', 'MEDS', 'MERC', 'METH', 'NEON', 'NITR', 'OMPO', 'OSOH', 'PRTL',
+    // Row 6
+    'PART', 'PITA', 'POTA', 'PFOO', 'PROT', 'QUAN', 'QUAR', 'RAND', 'RMC', 'REVP', 'REVE', 'RICCT',
+    // Row 7
+    'SCRA', 'SHPA', 'SILI', 'SLAM', 'SOUV', 'STEE', 'STIL', 'STIM', 'SUNB', 'TARA', 'TIN', 'TITA',
+    // Row 8
+    'TUNG', 'WAST', 'WIDO', 'XAPY', 'YTDO', 'YTMO', 'YTPO', 'YTRO'
 ];
 
 module.exports = {

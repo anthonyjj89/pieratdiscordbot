@@ -40,15 +40,18 @@ class TradeScraper {
             const results = $('.label-commodity').map((i, el) => {
                 const $el = $(el);
                 const name = $el.find('span').first().text().trim();
-                const code = $el.find('span').first().text().trim();
+                const code = name.split(' ')[0]; // Get first word as code
                 const priceText = $el.find('span').last().text().trim();
-                const price = parseInt(priceText.match(/\d+/)?.[0] || '0');
+                const isNA = priceText.includes('N/A');
+                const price = isNA ? null : parseInt(priceText.match(/\d+/)?.[0] || '0');
+                const slug = $el.attr('slug') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 
                 return {
                     name: name,
                     code: code,
-                    value: $el.attr('slug'),
-                    avgPrice: price
+                    value: slug,
+                    avgPrice: price,
+                    isPriceNA: isNA
                 };
             }).get();
 
@@ -96,7 +99,7 @@ class TradeScraper {
                 // Check if it's a "No Questions Asked" terminal
                 const isNoQuestions = $row.find('i.fa-low-vision').length > 0;
                 
-                if (name && price) {
+            if (name) {
                     locations.push({
                         name,
                         orbit,
@@ -123,9 +126,11 @@ class TradeScraper {
             // Sort by price descending
             locations.sort((a, b) => b.price.current - a.price.current);
 
-            // Calculate average price
-            const totalPrice = locations.reduce((sum, loc) => sum + loc.price.current, 0);
-            const averagePrice = Math.round(totalPrice / locations.length);
+            // Calculate average price (excluding locations with no price)
+            const validPrices = locations.filter(loc => loc.price && loc.price.current);
+            const averagePrice = validPrices.length > 0
+                ? Math.round(validPrices.reduce((sum, loc) => sum + loc.price.current, 0) / validPrices.length)
+                : null;
 
             fs.appendFileSync(this.logFile,
                 `| SCRP-UEX | Scraped ${locations.length} locations for ${commodity} | ${new Date().toISOString()} |\n`);
