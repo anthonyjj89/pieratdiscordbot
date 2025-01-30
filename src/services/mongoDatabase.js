@@ -6,13 +6,17 @@ if (!process.env.MONGODB_URI) {
 }
 
 // Models
+const CargoEntrySchema = new mongoose.Schema({
+    cargoType: { type: String, required: true },
+    scu: { type: Number, required: true },
+    sellLocation: { type: String, required: true },
+    currentPrice: { type: Number, required: true }
+});
+
 const ReportSchema = new mongoose.Schema({
     targetHandle: { type: String, required: true },
     reporterId: { type: String, required: true },
-    cargoType: { type: String, required: true },
-    boxes: { type: Number, required: true },
-    sellLocation: { type: String, required: true },
-    currentPrice: { type: Number, required: true },
+    cargo: [CargoEntrySchema],
     notes: String,
     timestamp: { type: Date, default: Date.now },
     guildId: { type: String, required: true },
@@ -53,6 +57,7 @@ const PiracyHitSchema = new mongoose.Schema({
 });
 
 // Create models
+const CargoEntry = mongoose.model('CargoEntry', CargoEntrySchema);
 const Report = mongoose.model('Report', ReportSchema);
 const CrewMember = mongoose.model('CrewMember', CrewMemberSchema);
 const Storage = mongoose.model('Storage', StorageSchema);
@@ -94,8 +99,13 @@ class MongoDatabaseService {
     }
 
     // Reports
-    async addReport(report) {
-        const newReport = new Report(report);
+    async addReport(reportData) {
+        // Ensure cargo is an array
+        if (!Array.isArray(reportData.cargo)) {
+            reportData.cargo = [reportData.cargo];
+        }
+        
+        const newReport = new Report(reportData);
         const savedReport = await newReport.save();
         return savedReport._id;
     }
@@ -282,7 +292,10 @@ class MongoDatabaseService {
         for (const report of reports) {
             const crewMember = report.crew.find(c => c.userId === userId);
             if (crewMember) {
-                const totalValue = report.boxes * 100 * report.currentPrice;
+                // Calculate total value across all cargo entries
+                const totalValue = report.cargo.reduce((sum, cargo) => {
+                    return sum + (cargo.scu * 100 * cargo.currentPrice);
+                }, 0);
                 totalShare += totalValue * crewMember.share;
             }
         }

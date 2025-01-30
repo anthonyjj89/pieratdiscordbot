@@ -106,6 +106,10 @@ client.on(Events.InteractionCreate, async interaction => {
                 } else if (interaction.customId === 'report_piracy') {
                     const username = interaction.message.embeds[0].title.split(': ')[1];
                     await lookupCommand.handleReportButton(interaction, username);
+                } else if (interaction.customId === 'add_more_cargo') {
+                    await lookupCommand.handleAddMoreCargo(interaction);
+                } else if (interaction.customId === 'continue_to_crew') {
+                    await lookupCommand.handleContinueToCrew(interaction);
                 } else if (interaction.customId === 'confirm_shares') {
                     await lookupCommand.handleConfirmShares(interaction);
                 } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {

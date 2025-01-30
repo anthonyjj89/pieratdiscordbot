@@ -1,15 +1,50 @@
 {
-  "last_execution": "2025-01-30T20:25:23+04:00",
-  "active_services": ["discord-client", "trade-scraper", "sqlite-db"],
-  "scraping_system": {
-    "last_uex_update": "2025-01-30T20:25:23+04:00",
-    "scrape_health": {
-      "success_rate": 0.0,
-      "avg_duration": 0.0
-    }
-  },
-  "uex_metrics": {
-    "commodities_tracked": 0,
-    "price_alerts_active": 0
-  }
+    "lastUpdate": "2025-01-31T01:38:12+04:00",
+    "version": "1.0.0",
+    "status": {
+        "database": {
+            "type": "MongoDB",
+            "connection": "active",
+            "migrations": "complete",
+            "models": [
+                "Report",
+                "CrewMember",
+                "Storage",
+                "PiracyHit",
+                "Payment",
+                "CargoEntry"
+            ]
+        },
+        "features": {
+            "profileLookup": "operational",
+            "hitReporting": "operational",
+            "paymentTracking": "operational",
+            "priceChecking": "operational"
+        },
+        "ui": {
+            "reportFlow": "modal-based",
+            "commoditySelection": "dropdown with search",
+            "locationSelection": "text input with pre-fill",
+            "crewSelection": "modal-based"
+        },
+        "activeSystems": {
+            "webScraping": true,
+            "priceTracking": true,
+            "shareCalculations": true,
+            "historyTracking": true
+        }
+    },
+    "pendingImprovements": [
+        "Location selection dropdown",
+        "Better error handling",
+        "SCU validation",
+        "Price data caching",
+        "Crew role selection UI"
+    ],
+    "knownIssues": [
+        "No autocomplete in modals",
+        "Limited to 25 select options",
+        "UEX timeouts",
+        "Basic input validation"
+    ]
 }
