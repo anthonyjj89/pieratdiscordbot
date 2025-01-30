@@ -74,6 +74,9 @@ module.exports = {
                 });
             }
 
+            // Add main user embed first
+            embeds.push(mainEmbed);
+
             // Add detailed piracy history if exists
             if (piracyHistory.length > 0) {
                 const historyEmbed = new EmbedBuilder()
