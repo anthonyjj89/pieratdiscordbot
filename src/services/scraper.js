@@ -7,6 +7,11 @@ class RSIScraper {
         this.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         };
+        this.axiosConfig = {
+            timeout: 10000,    // 10 second timeout
+            retries: 3,        // retry 3 times
+            retryDelay: 1000   // wait 1 second between retries
+        };
     }
 
     normalizeUrl(url) {
@@ -14,13 +19,36 @@ class RSIScraper {
         return url.startsWith('http') ? url : `${this.baseUrl}${url}`;
     }
 
+    async makeRequest(url, options = {}) {
+        let retries = this.axiosConfig.retries;
+        let lastError;
+
+        while (retries > 0) {
+            try {
+                const response = await axios({
+                    url,
+                    headers: this.headers,
+                    timeout: this.axiosConfig.timeout,
+                    ...options
+                });
+                return response;
+            } catch (error) {
+                lastError = error;
+                retries--;
+                if (retries === 0) break;
+                console.log(`Request failed, retrying... (${retries} attempts left)`);
+                await new Promise(resolve => setTimeout(resolve, this.axiosConfig.retryDelay));
+            }
+        }
+
+        throw lastError;
+    }
+
     async getProfileData(username) {
         try {
             // Get profile data
-            const profileResponse = await axios.get(`${this.baseUrl}/citizens/${username}`, {
-                headers: this.headers
-            });
-
+            console.log(`Fetching profile for ${username}...`);
+            const profileResponse = await this.makeRequest(`${this.baseUrl}/citizens/${username}`);
             const $ = cheerio.load(profileResponse.data);
 
             // Check if profile exists
@@ -38,10 +66,8 @@ class RSIScraper {
             const avatarUrl = this.normalizeUrl($('.profile .thumb img').attr('src'));
 
             // Get organizations data
-            const orgsResponse = await axios.get(`${this.baseUrl}/citizens/${username}/organizations`, {
-                headers: this.headers
-            });
-
+            console.log(`Fetching org data for ${username}...`);
+            const orgsResponse = await this.makeRequest(`${this.baseUrl}/citizens/${username}/organizations`);
             const org$ = cheerio.load(orgsResponse.data);
             
             // Process main organization
@@ -129,12 +155,21 @@ class RSIScraper {
                 affiliatedOrgs
             };
 
+            console.log(`Successfully fetched data for ${username}`);
             return data;
+
         } catch (error) {
-            if (error.response && error.response.status === 404) {
+            console.error(`Error fetching data for ${username}:`, error.message);
+            if (error.response?.status === 404) {
                 const notFoundError = new Error('Profile not found');
                 notFoundError.username = username;
                 throw notFoundError;
+            }
+            if (error.code === 'ECONNABORTED') {
+                throw new Error('Request timed out. The RSI website might be slow or down.');
+            }
+            if (error.response?.status === 429) {
+                throw new Error('Rate limited by RSI website. Please try again in a few minutes.');
             }
             throw error;
         }
