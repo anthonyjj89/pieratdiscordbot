@@ -76,76 +76,197 @@ module.exports = {
 
             // Add detailed piracy history if exists
             if (piracyHistory.length > 0) {
-                const historyDetails = piracyHistory.map((hit, index) => 
-                    `**${index + 1}.** ${new Date(hit.hit_date).toLocaleDateString()} - ${hit.details || 'No details'}`
-                ).join('\n');
-
                 const historyEmbed = new EmbedBuilder()
                     .setColor('#ff0000')
-                    .setTitle('Recent Piracy Incidents')
-                    .setDescription(historyDetails)
-                    .setFooter({ text: 'Last 3 recorded incidents' });
+                    .setTitle('Personal Piracy History')
+                    .addFields(
+                        {
+                            name: '📊 Summary',
+                            value: [
+                                `**Total Incidents**: ${recentPiracy.total_hits}`,
+                                `**Organizations Involved**: ${recentPiracy.orgs_involved}`,
+                                `**Last Incident**: ${new Date(recentPiracy.last_hit).toLocaleDateString()}`
+                            ].join('\n'),
+                            inline: false
+                        }
+                    );
+
+                // Add each incident as a separate field
+                piracyHistory.forEach((hit, index) => {
+                    const incidentDate = new Date(hit.hit_date).toLocaleDateString();
+                    let incidentDetails = `**Date**: ${incidentDate}\n`;
+                    
+                    if (hit.details) {
+                        incidentDetails += `**Details**: ${hit.details}\n`;
+                    }
+                    
+                    if (hit.org_id) {
+                        incidentDetails += `**Organization**: ${hit.org_id}\n`;
+                        if (hit.org_hit_date) {
+                            incidentDetails += `**Org Hit Date**: ${new Date(hit.org_hit_date).toLocaleDateString()}\n`;
+                        }
+                        if (hit.org_hit_details) {
+                            incidentDetails += `**Org Context**: ${hit.org_hit_details}`;
+                        }
+                    }
+
+                    historyEmbed.addFields({
+                        name: `🏴‍☠️ Incident #${index + 1}`,
+                        value: incidentDetails,
+                        inline: false
+                    });
+                });
+
+                historyEmbed.setFooter({ 
+                    text: `Showing ${piracyHistory.length} most recent incidents` 
+                });
 
                 embeds.push(historyEmbed);
             }
 
             // Add main org info
             if (profileData.mainOrg) {
-                if (profileData.mainOrg.isRedacted) {
-                    mainEmbed.addFields({
-                        name: 'Main Organization',
-                        value: '**[REDACTED]**',
-                        inline: false
-                    });
-                } else {
-                    mainEmbed.addFields({
-                        name: 'Main Organization',
-                        value: [
-                            `**Name**: [${profileData.mainOrg.name}](${profileData.mainOrg.url})`,
-                            `**Rank**: ${profileData.mainOrg.rank}`,
-                            `**Members**: ${profileData.mainOrg.memberCount}`,
-                            `**Organization ID**: ${profileData.mainOrg.sid}`
-                        ].join('\n'),
-                        inline: false
-                    });
+                const mainOrgEmbed = new EmbedBuilder()
+                    .setColor('#2f3136')
+                    .setTitle('Main Organization');
 
+                if (profileData.mainOrg.isRedacted) {
+                    mainOrgEmbed.setDescription('**[REDACTED]**');
+                } else {
+                    // Get org piracy data
+                    const orgPiracyData = await database.getRecentPiracyHits(profileData.mainOrg.sid, true);
+                    const orgPiracyHistory = await database.getPiracyHistory(profileData.mainOrg.sid, true, 5);
+
+                    // Set org logo as thumbnail
                     if (profileData.mainOrg.logoUrl) {
-                        mainEmbed.setImage(profileData.mainOrg.logoUrl);
+                        mainOrgEmbed.setThumbnail(profileData.mainOrg.logoUrl);
+                    }
+
+                    // Add org details
+                    mainOrgEmbed
+                        .setTitle(`Main Organization: ${profileData.mainOrg.name}`)
+                        .setURL(profileData.mainOrg.url)
+                        .addFields(
+                            { 
+                                name: 'Organization Details', 
+                                value: [
+                                    `**SID**: ${profileData.mainOrg.sid}`,
+                                    `**Rank**: ${profileData.mainOrg.rank}`,
+                                    `**Members**: ${profileData.mainOrg.memberCount}`
+                                ].join('\n'),
+                                inline: false 
+                            }
+                        );
+
+                    // Add piracy warning if exists
+                    if (orgPiracyData.total_hits > 0) {
+                        mainOrgEmbed.addFields({
+                            name: '🚨 Organization Piracy Warning',
+                            value: [
+                                `**Total Incidents**: ${orgPiracyData.total_hits}`,
+                                `**Unique Members Hit**: ${orgPiracyData.unique_members_hit}`,
+                                `**Last Incident**: ${new Date(orgPiracyData.last_hit).toLocaleDateString()}`
+                            ].join('\n'),
+                            inline: false
+                        });
+
+                        // Add recent hit history
+                        if (orgPiracyHistory.length > 0) {
+                            const historyText = orgPiracyHistory.map(hit => 
+                                `• ${new Date(hit.hit_date).toLocaleDateString()} - ${hit.member_handle}\n` +
+                                `  ${hit.details}`
+                            ).join('\n\n');
+
+                            mainOrgEmbed.addFields({
+                                name: 'Recent Incidents',
+                                value: historyText || 'No detailed history available',
+                                inline: false
+                            });
+                        }
+                    } else {
+                        mainOrgEmbed.addFields({
+                            name: '✅ Organization Status',
+                            value: 'No recorded piracy incidents',
+                            inline: false
+                        });
                     }
                 }
+
+                embeds.push(mainOrgEmbed);
             }
 
-            embeds.push(mainEmbed);
+            // Add affiliated orgs
+            if (profileData.affiliatedOrgs?.length > 0) {
+                for (const org of profileData.affiliatedOrgs) {
+                    const orgEmbed = new EmbedBuilder()
+                        .setColor('#2f3136')
+                        .setTitle('Affiliated Organization');
 
-// Add affiliated orgs
-if (profileData.affiliatedOrgs?.length > 0) {
-    const affiliatedEmbed = new EmbedBuilder()
-        .setColor('#2f3136')
-        .setTitle('Affiliated Organizations')
-        .setDescription('**__Org List__**');
+                    if (org.isRedacted) {
+                        orgEmbed.setDescription('**[REDACTED]**');
+                    } else {
+                        // Get org piracy data
+                        const orgPiracyData = await database.getRecentPiracyHits(org.sid, true);
+                        const orgPiracyHistory = await database.getPiracyHistory(org.sid, true, 3);
 
-    profileData.affiliatedOrgs.forEach((org, index) => {
-        if (org.isRedacted) {
-            affiliatedEmbed.addFields({
-                name: `Org ${index + 1}`,
-                value: '**[REDACTED]**',
-                inline: false
-            });
-        } else {
-            affiliatedEmbed.addFields({
-                name: `🏢 ${org.name} [${org.sid}]`,
-                value: [
-                    `• **Rank**: ${org.rank}`,
-                    `• **Members**: ${org.memberCount}`,
-                    `• **URL**: [RSI Page](${org.url})`
-                ].join('\n'),
-                inline: true
-            });
-        }
-    });
+                        // Set org logo as thumbnail
+                        if (org.logoUrl) {
+                            orgEmbed.setThumbnail(org.logoUrl);
+                        }
 
-    embeds.push(affiliatedEmbed);
-}
+                        // Add org details
+                        orgEmbed
+                            .setTitle(`Affiliated Organization: ${org.name}`)
+                            .setURL(org.url)
+                            .addFields(
+                                { 
+                                    name: 'Organization Details', 
+                                    value: [
+                                        `**SID**: ${org.sid}`,
+                                        `**Rank**: ${org.rank}`,
+                                        `**Members**: ${org.memberCount}`
+                                    ].join('\n'),
+                                    inline: false 
+                                }
+                            );
+
+                        // Add piracy warning if exists
+                        if (orgPiracyData.total_hits > 0) {
+                            orgEmbed.addFields({
+                                name: '🚨 Organization Piracy Warning',
+                                value: [
+                                    `**Total Incidents**: ${orgPiracyData.total_hits}`,
+                                    `**Unique Members Hit**: ${orgPiracyData.unique_members_hit}`,
+                                    `**Last Incident**: ${new Date(orgPiracyData.last_hit).toLocaleDateString()}`
+                                ].join('\n'),
+                                inline: false
+                            });
+
+                            // Add recent hit history
+                            if (orgPiracyHistory.length > 0) {
+                                const historyText = orgPiracyHistory.map(hit => 
+                                    `• ${new Date(hit.hit_date).toLocaleDateString()} - ${hit.member_handle}\n` +
+                                    `  ${hit.details}`
+                                ).join('\n\n');
+
+                                orgEmbed.addFields({
+                                    name: 'Recent Incidents',
+                                    value: historyText || 'No detailed history available',
+                                    inline: false
+                                });
+                            }
+                        } else {
+                            orgEmbed.addFields({
+                                name: '✅ Organization Status',
+                                value: 'No recorded piracy incidents',
+                                inline: false
+                            });
+                        }
+                    }
+
+                    embeds.push(orgEmbed);
+                }
+            }
 
             // Create report button
             const reportButton = embedBuilder.createReportButton();
