@@ -12,6 +12,7 @@ const {
 } = require('discord.js');
 const database = require('../services/database');
 const tradeScraper = require('../services/tradeScraper');
+const scraper = require('../services/scraper');
 
 // Common trade goods (limited to 25 for Discord's select menu limit)
 const COMMON_COMMODITIES = [
@@ -304,8 +305,8 @@ module.exports = {
         reportData.seller = seller;
 
         try {
-            // Calculate shares
-            const sharePerMember = 1.0 / reportData.crew.length;
+            // Get target's profile data for org hits
+            const profileData = await scraper.getProfileData(reportData.target);
             const totalValue = reportData.boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * reportData.price;
 
             // Save the report
@@ -321,12 +322,50 @@ module.exports = {
                 sellerId: seller
             });
 
-            // Save crew members
+            // Add piracy hit for user
+            await database.addPiracyHit(
+                reportData.target,
+                false,
+                `Cargo stolen: ${reportData.boxes} ${reportData.commodity}`,
+                profileData.mainOrg?.sid || null
+            );
+
+            // Add piracy hit for main org if exists
+            if (profileData.mainOrg && !profileData.mainOrg.isRedacted) {
+                await database.addPiracyHit(
+                    profileData.mainOrg.sid,
+                    true,
+                    `Member ${reportData.target} hit: ${reportData.boxes} ${reportData.commodity}`,
+                    reportData.target
+                );
+            }
+
+            // Add piracy hits for affiliated orgs
+            if (profileData.affiliatedOrgs) {
+                for (const org of profileData.affiliatedOrgs) {
+                    if (!org.isRedacted) {
+                        await database.addPiracyHit(
+                            org.sid,
+                            true,
+                            `Member ${reportData.target} hit: ${reportData.boxes} ${reportData.commodity}`,
+                            reportData.target
+                        );
+                    }
+                }
+            }
+
+            // Save crew members with roles and ratios
             for (const userId of reportData.crew) {
+                const roleRatio = database.roleRatios[reportData.roles?.[userId]] || 1.0;
+                const totalRatios = reportData.crew.reduce((sum, id) => 
+                    sum + (database.roleRatios[reportData.roles?.[id]] || 1.0), 0);
+                const share = roleRatio / totalRatios;
+
                 await database.addCrewMember({
                     hitId: reportId,
                     userId: userId,
-                    share: sharePerMember
+                    role: reportData.roles?.[userId] || 'general_crew',
+                    share: share
                 });
             }
 
@@ -345,7 +384,12 @@ module.exports = {
                         name: 'Crew',
                         value: reportData.crew.map(userId => {
                             const isHolder = userId === seller;
-                            return `<@${userId}> - ${tradeScraper.formatPrice(totalValue * sharePerMember)} aUEC${isHolder ? ' (Seller)' : ''}`;
+                            const role = reportData.roles?.[userId] || 'general_crew';
+                            const roleRatio = database.roleRatios[role];
+                            const totalRatios = reportData.crew.reduce((sum, id) => 
+                                sum + (database.roleRatios[reportData.roles?.[id]] || 1.0), 0);
+                            const share = roleRatio / totalRatios;
+                            return `<@${userId}> - ${role} (${roleRatio}x) → ${tradeScraper.formatPrice(totalValue * share)} aUEC${isHolder ? ' (Seller)' : ''}`;
                         }).join('\n'),
                         inline: false
                     }
@@ -393,7 +437,9 @@ module.exports = {
                 const totalValue = report.boxes * 100 * report.current_price;
                 const crewList = report.crew.map(member => {
                     const isSeller = member.userId === report.seller_id;
-                    return `<@${member.userId}> - ${tradeScraper.formatPrice(totalValue * member.share)} aUEC${isSeller ? ' (Seller)' : ''}`;
+                    const roleInfo = member.role ? ` - ${member.role} (${member.role_ratio}x)` : '';
+                    const amount = tradeScraper.formatPrice(totalValue * member.share);
+                    return `<@${member.userId}>${roleInfo} → ${amount} aUEC${isSeller ? ' (Seller)' : ''}`;
                 }).join('\n');
 
                 const fieldValue = [

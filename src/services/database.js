@@ -207,7 +207,7 @@ class DatabaseService {
         const sql = `
             SELECT 
                 r.*,
-                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share) as crew,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role || ',' || cm.role_ratio) as crew,
                 s.holder_id as storage_holder
             FROM reports r
             LEFT JOIN crew_members cm ON r.id = cm.hit_id
@@ -227,10 +227,12 @@ class DatabaseService {
                     const processedRows = rows.map(row => {
                         const crewData = row.crew ? row.crew.split(',') : [];
                         const crew = [];
-                        for (let i = 0; i < crewData.length; i += 2) {
+                        for (let i = 0; i < crewData.length; i += 4) {
                             crew.push({
                                 userId: crewData[i],
-                                share: parseFloat(crewData[i + 1])
+                                share: parseFloat(crewData[i + 1]),
+                                role: crewData[i + 2],
+                                role_ratio: parseFloat(crewData[i + 3])
                             });
                         }
                         return {
@@ -263,7 +265,7 @@ class DatabaseService {
         const sql = `
             SELECT 
                 r.*,
-                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share) as crew,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role || ',' || cm.role_ratio) as crew,
                 s.holder_id as storage_holder
             FROM reports r
             LEFT JOIN crew_members cm ON r.id = cm.hit_id
@@ -282,10 +284,12 @@ class DatabaseService {
                     const processedRows = rows.map(row => {
                         const crewData = row.crew ? row.crew.split(',') : [];
                         const crew = [];
-                        for (let i = 0; i < crewData.length; i += 2) {
+                        for (let i = 0; i < crewData.length; i += 4) {
                             crew.push({
                                 userId: crewData[i],
-                                share: parseFloat(crewData[i + 1])
+                                share: parseFloat(crewData[i + 1]),
+                                role: crewData[i + 2],
+                                role_ratio: parseFloat(crewData[i + 3])
                             });
                         }
                         return {
