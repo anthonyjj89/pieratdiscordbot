@@ -6,26 +6,12 @@ const {
     ActionRowBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle,
-    StringSelectMenuBuilder,
-    UserSelectMenuBuilder
+    TextInputStyle
 } = require('discord.js');
 const scraper = require('../services/scraper');
 const embedBuilder = require('../utils/embedBuilder');
 const database = require('../services/mongoDatabase');
 const tradeScraper = require('../services/tradeScraper');
-
-// Common commodities list
-const COMMON_COMMODITIES = [
-    'ACCO', 'AGRI', 'AGRS', 'AUTR', 'ALUM', 'AMIP', 'APHO', 'ARGO', 'ASTA', 'AUDI', 'BERY', 'BEXA',
-    'BIOPL', 'BORA', 'CARB', 'CSIL', 'CHLO', 'CK13', 'COMP', 'CMAT', 'COPP', 'CORU', 'DEGR', 'DIAM',
-    'DIAL', 'DILU', 'DIST', 'DOLI', 'DYMA', 'DYNF', 'ETAM', 'FFOO', 'FLUO', 'GAWE', 'GOLD', 'GOLM',
-    'HADA', 'HOT', 'HELI', 'HEPH', 'HPMC', 'HFBA', 'HYDR', 'HYDF', 'IODI', 'IRON', 'JANA', 'KOPH',
-    'LARA', 'LUMG', 'MARG', 'MAZE', 'MEDS', 'MERC', 'METH', 'NEON', 'NITR', 'OMPO', 'OSOH', 'PRTL',
-    'PART', 'PITA', 'POTA', 'PFOO', 'PROT', 'QUAN', 'QUAR', 'RAND', 'RMC', 'REVP', 'REVE', 'RICCT',
-    'SCRA', 'SHPA', 'SILI', 'SLAM', 'SOUV', 'STEE', 'STIL', 'STIM', 'SUNB', 'TARA', 'TIN', 'TITA',
-    'TUNG', 'WAST', 'WIDO', 'XAPY', 'YTDO', 'YTMO', 'YTPO', 'YTRO'
-];
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -334,60 +320,21 @@ module.exports = {
 
     async handleReportButton(interaction, username) {
         try {
-            // Get list of commodities from trade scraper
-            const commodities = await tradeScraper.getCommodities();
-            
-            // Filter to just common commodities and ensure we stay within Discord's limit
-            const filteredCommodities = commodities
-                .filter(c => COMMON_COMMODITIES.includes(c.value?.toUpperCase() || c.name.toUpperCase()))
-                .slice(0, 25);
-
             // Store username for later steps
             interaction.client.reportData = interaction.client.reportData || {};
             interaction.client.reportData[interaction.user.id] = { username };
-
-            // Create commodity select menu
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select cargo type')
-                .addOptions(
-                    filteredCommodities.map(commodity => ({
-                        label: `${commodity.code} - ${commodity.name}`,
-                        value: commodity.value || commodity.name,
-                        description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                    }))
-                );
-
-            const row = new ActionRowBuilder().addComponents(commoditySelect);
-
-            await interaction.reply({
-                content: 'Step 1: Select the type of cargo that was stolen',
-                components: [row],
-                ephemeral: true
-            });
-
-        } catch (error) {
-            console.error('Error showing commodity select:', error);
-            await interaction.reply({
-                content: 'An error occurred while starting the report.',
-                ephemeral: true
-            });
-        }
-    },
-
-    async handleCommoditySelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        reportData.commodity = interaction.values[0];
-
-        try {
-            // Get prices for selected commodity
-            const prices = await tradeScraper.getPrices(reportData.commodity);
-            reportData.prices = prices;
 
             // Create cargo details modal
             const modal = new ModalBuilder()
                 .setCustomId('cargo_details_modal')
                 .setTitle('Report Hit - Cargo Details');
+
+            const commodityInput = new TextInputBuilder()
+                .setCustomId('commodity')
+                .setLabel('Cargo Type (e.g., SLAM, GOLD)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter cargo type')
+                .setRequired(true);
 
             const boxesInput = new TextInputBuilder()
                 .setCustomId('boxes')
@@ -396,20 +343,11 @@ module.exports = {
                 .setPlaceholder('e.g., 50')
                 .setRequired(true);
 
-            const priceInput = new TextInputBuilder()
-                .setCustomId('price')
-                .setLabel('Price per unit (aUEC)')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder(`e.g., ${prices?.bestLocation?.price || '20000'}`)
-                .setValue(prices?.bestLocation?.price?.toString() || '')
-                .setRequired(true);
-
             const locationInput = new TextInputBuilder()
                 .setCustomId('location')
                 .setLabel('Where will you sell?')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder(prices?.bestLocation?.name || 'e.g., CRU-L5')
-                .setValue(prices?.bestLocation?.name || '')
+                .setPlaceholder('e.g., CRU-L5')
                 .setRequired(true);
 
             const notesInput = new TextInputBuilder()
@@ -420,41 +358,18 @@ module.exports = {
                 .setRequired(false);
 
             modal.addComponents(
+                new ActionRowBuilder().addComponents(commodityInput),
                 new ActionRowBuilder().addComponents(boxesInput),
-                new ActionRowBuilder().addComponents(priceInput),
                 new ActionRowBuilder().addComponents(locationInput),
                 new ActionRowBuilder().addComponents(notesInput)
             );
 
-            // Show price info and modal
-            const priceEmbed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle(`Current Prices for ${reportData.commodity}`);
-
-            if (prices?.bestLocation?.price) {
-                priceEmbed.addFields(
-                    { 
-                        name: '💰 Best Price', 
-                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
-                        inline: false 
-                    },
-                    { 
-                        name: '📊 Average Price', 
-                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
-                        inline: false 
-                    }
-                );
-            } else {
-                priceEmbed.setDescription('No current price data available');
-            }
-
-            await interaction.reply({ embeds: [priceEmbed], ephemeral: true });
             await interaction.showModal(modal);
 
         } catch (error) {
-            console.error('Error handling commodity selection:', error);
+            console.error('Error showing modal:', error);
             await interaction.reply({
-                content: 'An error occurred while getting price information.',
+                content: 'An error occurred while starting the report.',
                 ephemeral: true
             });
         }
@@ -462,8 +377,8 @@ module.exports = {
 
     async handleCargoDetails(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
+        const commodity = interaction.fields.getTextInputValue('commodity').toUpperCase();
         const boxes = parseInt(interaction.fields.getTextInputValue('boxes'));
-        const price = parseFloat(interaction.fields.getTextInputValue('price'));
         const location = interaction.fields.getTextInputValue('location');
         const notes = interaction.fields.getTextInputValue('notes');
 
@@ -475,182 +390,152 @@ module.exports = {
             return;
         }
 
-        if (isNaN(price) || price <= 0) {
+        // Store cargo details
+        reportData.commodity = commodity;
+        reportData.boxes = boxes;
+        reportData.location = location;
+        reportData.notes = notes;
+
+        // Get price info
+        const prices = await tradeScraper.getPrices(commodity);
+        reportData.price = prices?.bestLocation?.price || 0;
+
+        // Create crew modal
+        const modal = new ModalBuilder()
+            .setCustomId('crew_details_modal')
+            .setTitle('Report Hit - Crew Details');
+
+        const crewInput = new TextInputBuilder()
+            .setCustomId('crew')
+            .setLabel('Crew Members (mention with @)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('@pilot @gunner @boarder')
+            .setRequired(true);
+
+        const rolesInput = new TextInputBuilder()
+            .setCustomId('roles')
+            .setLabel('Roles (pilot/gunner/boarder/escort/storage)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('pilot\ngunner\nboarder')
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(crewInput),
+            new ActionRowBuilder().addComponents(rolesInput)
+        );
+
+        await interaction.showModal(modal);
+    },
+
+    async handleCrewDetails(interaction) {
+        const reportData = interaction.client.reportData[interaction.user.id];
+        
+        // Parse crew mentions and roles
+        const crewText = interaction.fields.getTextInputValue('crew');
+        const rolesText = interaction.fields.getTextInputValue('roles');
+
+        const crewIds = crewText.match(/<@(\d+)>/g)?.map(mention => mention.match(/\d+/)[0]) || [];
+        const roles = rolesText.split('\n').map(role => role.trim().toLowerCase());
+
+        if (crewIds.length === 0) {
             await interaction.reply({
-                content: 'Please enter a valid price.',
+                content: 'Please mention at least one crew member with @.',
                 ephemeral: true
             });
             return;
         }
 
-        reportData.boxes = boxes;
-        reportData.price = price;
-        reportData.location = location;
-        reportData.notes = notes;
-
-        // Calculate total value
-        const totalValue = boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * price;
-
-        // Create crew selection
-        const crewSelect = new UserSelectMenuBuilder()
-            .setCustomId('crew_select')
-            .setPlaceholder('Select crew members')
-            .setMinValues(1)
-            .setMaxValues(5);
-
-        const row = new ActionRowBuilder().addComponents(crewSelect);
-
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Hit Report Preview')
-            .addFields(
-                { name: 'Target', value: reportData.username, inline: true },
-                { name: 'Cargo', value: `${reportData.boxes} boxes of ${reportData.commodity}`, inline: true },
-                { name: 'Selling At', value: location, inline: true },
-                { name: 'Price', value: `${price.toFixed(2)} aUEC/unit`, inline: true },
-                { name: 'Total Value', value: `${tradeScraper.formatPrice(totalValue)} aUEC`, inline: false }
-            );
-
-        if (notes) {
-            embed.addFields({ name: 'Notes', value: notes, inline: false });
-        }
-
-        await interaction.reply({
-            content: 'Step 2: Select the crew members who participated in this hit',
-            embeds: [embed],
-            components: [row],
-            ephemeral: true
-        });
-    },
-
-    async handleCrewSelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        const selectedUsers = interaction.values;
-        reportData.crew = selectedUsers;
-
-        // Create role selection menu for each crew member
-        const rows = [];
-        for (const userId of selectedUsers) {
-            const roleSelect = new StringSelectMenuBuilder()
-                .setCustomId(`role_select_${userId}`)
-                .setPlaceholder(`Select role for ${interaction.client.users.cache.get(userId).username}`)
-                .addOptions([
-                    { label: 'General Crew', value: 'general_crew', description: 'Standard crew member (1.0x share)' },
-                    { label: 'Pilot', value: 'pilot', description: 'Flew the ship (0.8x share)' },
-                    { label: 'Gunner', value: 'gunner', description: 'Operated weapons (0.8x share)' },
-                    { label: 'Boarder', value: 'boarder', description: 'Boarded target ship (1.2x share)' },
-                    { label: 'Escort', value: 'escort', description: 'Provided security (1.1x share)' },
-                    { label: 'Storage', value: 'storage', description: 'Storing the cargo (1.0x share)' }
-                ]);
-
-            rows.push(new ActionRowBuilder().addComponents(roleSelect));
-        }
-
-        await interaction.update({
-            content: 'Step 3: Select roles for each crew member',
-            components: rows,
-            ephemeral: true
-        });
-    },
-
-    async handleRoleSelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        const userId = interaction.customId.split('_')[2];
-        const selectedRole = interaction.values[0];
-
-        // Initialize roles object if it doesn't exist
-        reportData.roles = reportData.roles || {};
-        reportData.roles[userId] = selectedRole;
-
-        // Check if all crew members have roles assigned
-        const allRolesAssigned = reportData.crew.every(id => reportData.roles[id]);
-
-        if (allRolesAssigned) {
-            // Calculate shares
-            const totalRatios = reportData.crew.reduce((sum, id) => 
-                sum + database.roleRatios[reportData.roles[id]], 0);
-
-            reportData.crew.forEach(id => {
-                const roleRatio = database.roleRatios[reportData.roles[id]];
-                reportData.roles[`${id}_share`] = roleRatio / totalRatios;
-            });
-
-            // Calculate total value
-            const totalValue = reportData.boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * reportData.price;
-
-            // Create share review embed
-            const embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('Share Distribution')
-                .addFields(
-                    { 
-                        name: '📦 Cargo Summary', 
-                        value: [
-                            `**Type**: ${reportData.commodity}`,
-                            `**Amount**: ${reportData.boxes} boxes`,
-                            `**Price**: ${reportData.price.toFixed(2)} aUEC/unit`,
-                            `**Total Value**: ${tradeScraper.formatPrice(totalValue)} aUEC`
-                        ].join('\n'),
-                        inline: false 
-                    }
-                );
-
-            // Add crew shares
-            reportData.crew.forEach(userId => {
-                const user = interaction.client.users.cache.get(userId);
-                const role = reportData.roles[userId];
-                const ratio = database.roleRatios[role];
-                const share = reportData.roles[`${userId}_share`];
-                const shareAmount = Math.floor(totalValue * share);
-                embed.addFields({
-                    name: user.username,
-                    value: `Role: ${role} (${ratio}x)\nShare: ${(share * 100).toFixed(1)}% → ${tradeScraper.formatPrice(shareAmount)} aUEC`,
-                    inline: true
-                });
-            });
-
-            // Create confirm button
-            const confirmButton = new ButtonBuilder()
-                .setCustomId('confirm_shares')
-                .setLabel('Confirm & Submit Report')
-                .setStyle(ButtonStyle.Success);
-
-            const row = new ActionRowBuilder().addComponents(confirmButton);
-
-            await interaction.update({
-                content: 'Final Step: Review share distribution and confirm',
-                embeds: [embed],
-                components: [row],
+        if (crewIds.length !== roles.length) {
+            await interaction.reply({
+                content: 'Number of crew members and roles must match.',
                 ephemeral: true
             });
-        } else {
-            // Show progress
-            const embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('Role Assignment Progress')
-                .setDescription(
-                    reportData.crew.map(id => {
-                        const user = interaction.client.users.cache.get(id);
-                        const role = reportData.roles[id];
-                        return `${user.username}: ${role ? `✅ ${role}` : '❌ pending'}`;
-                    }).join('\n')
-                );
+            return;
+        }
 
-            await interaction.update({
-                content: 'Continue selecting roles for remaining crew members',
-                embeds: [embed],
-                components: interaction.message.components,
+        // Validate roles
+        const validRoles = ['pilot', 'gunner', 'boarder', 'escort', 'storage', 'general_crew'];
+        if (!roles.every(role => validRoles.includes(role))) {
+            await interaction.reply({
+                content: 'Invalid role(s). Use: pilot, gunner, boarder, escort, storage, or general_crew',
                 ephemeral: true
             });
+            return;
         }
+
+        // Store crew details
+        reportData.crew = crewIds;
+        reportData.roles = {};
+        crewIds.forEach((id, index) => {
+            reportData.roles[id] = roles[index];
+        });
+
+        // Calculate shares
+        const totalRatios = crewIds.reduce((sum, id) => 
+            sum + database.roleRatios[reportData.roles[id]], 0);
+
+        crewIds.forEach(id => {
+            const roleRatio = database.roleRatios[reportData.roles[id]];
+            reportData.roles[`${id}_share`] = roleRatio / totalRatios;
+        });
+
+        // Create confirmation modal
+        const modal = new ModalBuilder()
+            .setCustomId('confirm_report_modal')
+            .setTitle('Report Hit - Confirm Details');
+
+        const totalValue = reportData.boxes * 100 * reportData.price;
+        const details = [
+            `Target: ${reportData.username}`,
+            `Cargo: ${reportData.boxes} boxes of ${reportData.commodity}`,
+            `Location: ${reportData.location}`,
+            `Total Value: ${tradeScraper.formatPrice(totalValue)} aUEC`,
+            '\nCrew Shares:',
+            ...crewIds.map(id => {
+                const role = reportData.roles[id];
+                const share = reportData.roles[`${id}_share`];
+                const amount = Math.floor(totalValue * share);
+                return `<@${id}> - ${role} → ${tradeScraper.formatPrice(amount)} aUEC`;
+            })
+        ].join('\n');
+
+        const confirmInput = new TextInputBuilder()
+            .setCustomId('confirm')
+            .setLabel('Review details and type YES to confirm')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Type YES to confirm')
+            .setRequired(true);
+
+        const detailsInput = new TextInputBuilder()
+            .setCustomId('details')
+            .setLabel('Report Details')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(details)
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(confirmInput),
+            new ActionRowBuilder().addComponents(detailsInput)
+        );
+
+        await interaction.showModal(modal);
     },
 
-    async handleConfirmShares(interaction) {
+    async handleConfirmReport(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
+        const confirm = interaction.fields.getTextInputValue('confirm');
+
+        if (confirm !== 'YES') {
+            await interaction.reply({
+                content: 'Report cancelled.',
+                ephemeral: true
+            });
+            return;
+        }
 
         try {
             // Calculate total value
-            const totalValue = reportData.boxes * (reportData.prices?.boxInfo?.unitsPerBox || 100) * reportData.price;
+            const totalValue = reportData.boxes * 100 * reportData.price;
 
             // Save the report
             const reportId = await database.addReport({
@@ -702,7 +587,6 @@ module.exports = {
                     {
                         name: '👥 Crew',
                         value: reportData.crew.map(userId => {
-                            const user = interaction.client.users.cache.get(userId);
                             const role = reportData.roles[userId];
                             const share = reportData.roles[`${userId}_share`];
                             const shareAmount = Math.floor(totalValue * share);
@@ -716,22 +600,15 @@ module.exports = {
                 embed.addFields({ name: '📝 Notes', value: reportData.notes, inline: false });
             }
 
-            await interaction.update({
-                content: null,
-                embeds: [embed],
-                components: [],
-                ephemeral: false
-            });
+            await interaction.reply({ embeds: [embed] });
 
             // Clean up
             delete interaction.client.reportData[interaction.user.id];
 
         } catch (error) {
             console.error('Error saving report:', error);
-            await interaction.update({
+            await interaction.reply({
                 content: 'An error occurred while saving the report.',
-                embeds: [],
-                components: [],
                 ephemeral: true
             });
         }

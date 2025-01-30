@@ -138,6 +138,10 @@ client.on(Events.InteractionCreate, async interaction => {
                     await helpCommand.handleModalSubmit(interaction);
                 } else if (interaction.customId === 'cargo_details_modal') {
                     await lookupCommand.handleCargoDetails(interaction);
+                } else if (interaction.customId === 'crew_details_modal') {
+                    await lookupCommand.handleCrewDetails(interaction);
+                } else if (interaction.customId === 'confirm_report_modal') {
+                    await lookupCommand.handleConfirmReport(interaction);
                 }
             } catch (error) {
                 console.error('Error handling modal submit:', error);
