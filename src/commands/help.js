@@ -119,24 +119,18 @@ module.exports = {
                 }
 
                 case 'hits_report': {
-                    // Show modal for hit report
-                    const reportModal = new ModalBuilder()
-                        .setCustomId('help_hits_report_modal')
-                        .setTitle('Report Hit');
-
-                    const targetInput = new TextInputBuilder()
-                        .setCustomId('target')
-                        .setLabel('Target Player')
-                        .setStyle(TextInputStyle.Short)
-                        .setMinLength(1)
-                        .setMaxLength(100)
-                        .setPlaceholder('Enter target\'s handle')
-                        .setRequired(true);
-
-                    const reportActionRow = new ActionRowBuilder().addComponents(targetInput);
-                    reportModal.addComponents(reportActionRow);
-
-                    await interaction.showModal(reportModal);
+                    // Execute hits report command directly
+                    const hitsCommand = interaction.client.commands.get('hits');
+                    await hitsCommand.execute({
+                        ...interaction,
+                        options: {
+                            getSubcommand: () => 'report',
+                            getString: (name) => {
+                                if (name === 'target') return null;
+                                if (name === 'commodity') return null;
+                            }
+                        }
+                    });
                     break;
                 }
 
@@ -230,18 +224,6 @@ module.exports = {
                     break;
                 }
 
-                case 'help_hits_report_modal': {
-                    const target = interaction.fields.getTextInputValue('target');
-                    const hitsCommand = interaction.client.commands.get('hits');
-                    await hitsCommand.execute({
-                        ...interaction,
-                        options: {
-                            getSubcommand: () => 'report',
-                            getString: () => target
-                        }
-                    });
-                    break;
-                }
 
                 case 'help_pay_modal': {
                     const hitId = parseInt(interaction.fields.getTextInputValue('hit_id'));

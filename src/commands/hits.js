@@ -1,7 +1,6 @@
 const { 
     SlashCommandBuilder, 
     EmbedBuilder,
-    StringSelectMenuBuilder,
     UserSelectMenuBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -14,26 +13,6 @@ const database = require('../services/mongoDatabase');
 const tradeScraper = require('../services/tradeScraper');
 const scraper = require('../services/scraper');
 
-// All trade commodities from UEX
-const COMMON_COMMODITIES = [
-    // Row 1
-    'ACCO', 'AGRI', 'AGRS', 'AUTR', 'ALUM', 'AMIP', 'APHO', 'ARGO', 'ASTA', 'AUDI', 'BERY', 'BEXA',
-    // Row 2
-    'BIOPL', 'BORA', 'CARB', 'CSIL', 'CHLO', 'CK13', 'COMP', 'CMAT', 'COPP', 'CORU', 'DEGR', 'DIAM',
-    // Row 3
-    'DIAL', 'DILU', 'DIST', 'DOLI', 'DYMA', 'DYNF', 'ETAM', 'FFOO', 'FLUO', 'GAWE', 'GOLD', 'GOLM',
-    // Row 4
-    'HADA', 'HOT', 'HELI', 'HEPH', 'HPMC', 'HFBA', 'HYDR', 'HYDF', 'IODI', 'IRON', 'JANA', 'KOPH',
-    // Row 5
-    'LARA', 'LUMG', 'MARG', 'MAZE', 'MEDS', 'MERC', 'METH', 'NEON', 'NITR', 'OMPO', 'OSOH', 'PRTL',
-    // Row 6
-    'PART', 'PITA', 'POTA', 'PFOO', 'PROT', 'QUAN', 'QUAR', 'RAND', 'RMC', 'REVP', 'REVE', 'RICCT',
-    // Row 7
-    'SCRA', 'SHPA', 'SILI', 'SLAM', 'SOUV', 'STEE', 'STIL', 'STIM', 'SUNB', 'TARA', 'TIN', 'TITA',
-    // Row 8
-    'TUNG', 'WAST', 'WIDO', 'XAPY', 'YTDO', 'YTMO', 'YTPO', 'YTRO'
-];
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('hits')
@@ -45,7 +24,12 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('target')
                         .setDescription('The player who was hit')
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('commodity')
+                        .setDescription('Start typing to search commodities')
+                        .setRequired(true)
+                        .setAutocomplete(true)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('list')
@@ -54,6 +38,67 @@ module.exports = {
                     option.setName('page')
                         .setDescription('Page number')
                         .setMinValue(1))),
+
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused().toUpperCase();
+            const commodities = await tradeScraper.getCommodities();
+
+            // If no input, return first 25 commodities
+            if (!focusedValue) {
+                const choices = commodities.slice(0, 25).map(c => ({
+                    name: `${c.code} - ${c.name}`,
+                    value: c.value
+                }));
+                await interaction.respond(choices);
+                return;
+            }
+
+            // Filter and sort commodities based on search term
+            const filtered = commodities
+                .map(c => {
+                    const score = this.getMatchScore(c, focusedValue);
+                    return { commodity: c, score };
+                })
+                .filter(item => item.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 25)
+                .map(item => ({
+                    name: `${item.commodity.code} - ${item.commodity.name}`,
+                    value: item.commodity.value
+                }));
+
+            await interaction.respond(filtered);
+        } catch (error) {
+            console.error('Error in autocomplete:', error);
+            await interaction.respond([]);
+        }
+    },
+
+    // Helper function to score matches (same as pricecheck)
+    getMatchScore(commodity, search) {
+        const code = commodity.code.toUpperCase();
+        const name = commodity.name.toUpperCase();
+        const searchTerm = search.toUpperCase();
+
+        if (code === searchTerm) return 100;
+        if (name === searchTerm) return 90;
+        if (code.startsWith(searchTerm)) return 80;
+        if (code.includes(searchTerm)) return 70;
+        if (name.startsWith(searchTerm)) return 60;
+        
+        const words = name.split(' ');
+        for (const word of words) {
+            if (word.startsWith(searchTerm)) return 50;
+            if (word.includes(searchTerm)) return 40;
+        }
+
+        if (name.includes(searchTerm)) return 30;
+        const slug = commodity.value.replace(/-/g, ' ');
+        if (slug.includes(searchTerm.toLowerCase())) return 20;
+
+        return 0;
+    },
 
     async execute(interaction) {
         if (interaction.options.getSubcommand() === 'report') {
@@ -67,91 +112,24 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
 
         try {
-            // Get list of commodities from trade scraper
+            const target = interaction.options.getString('target');
+            const commodityValue = interaction.options.getString('commodity');
+            
+            // Get commodity details and prices
             const commodities = await tradeScraper.getCommodities();
-            
-            // Filter to just common commodities and ensure we stay within Discord's limit
-            const filteredCommodities = commodities
-                .filter(c => COMMON_COMMODITIES.includes(c.value?.toUpperCase() || c.name.toUpperCase()))
-                .slice(0, 25);
-            
-            // Create commodity select menu
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select cargo type')
-                .addOptions(
-                    filteredCommodities.map(commodity => ({
-                        label: commodity.name,
-                        value: commodity.value || commodity.name,
-                        description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                    }))
-                );
+            const commodity = commodities.find(c => c.value === commodityValue);
+            const prices = await tradeScraper.getPrices(commodityValue);
 
-            const row = new ActionRowBuilder().addComponents(commoditySelect);
-
-            // Store target for later
+            // Store data for later
             interaction.client.reportData = interaction.client.reportData || {};
             interaction.client.reportData[interaction.user.id] = {
-                target: interaction.options.getString('target')
+                target,
+                commodity: commodity.name,
+                commodityCode: commodity.code,
+                prices
             };
 
-            await interaction.editReply({
-                content: 'Step 1: Select the type of cargo that was stolen',
-                components: [row],
-                ephemeral: true
-            });
-
-        } catch (error) {
-            console.error('Error starting report:', error);
-            await interaction.editReply({
-                content: 'An error occurred while starting the report.',
-                ephemeral: true
-            });
-        }
-    },
-
-    async handleCommoditySelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        reportData.commodity = interaction.values[0];
-
-        try {
-            // Get prices for selected commodity
-            const prices = await tradeScraper.getPrices(reportData.commodity);
-            
-            // Check if we have valid price data
-            if (!prices || !prices.bestLocation || !prices.bestLocation.price) {
-                reportData.prices = {
-                    bestLocation: { name: '', price: 0 },
-                    averagePrice: 0,
-                    boxInfo: { unitsPerBox: 100 }
-                };
-            } else {
-                reportData.prices = prices;
-            }
-
-            // Create price info embed
-            const priceEmbed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle(`Current Prices for ${reportData.commodity}`);
-
-            if (prices && prices.bestLocation && prices.bestLocation.price) {
-                priceEmbed.addFields(
-                    { 
-                        name: '💰 Best Price', 
-                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
-                        inline: false 
-                    },
-                    { 
-                        name: '📊 Average Price', 
-                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
-                        inline: false 
-                    }
-                );
-            } else {
-                priceEmbed.setDescription('No current price data available');
-            }
-
-            // Create box count modal
+            // Create cargo details modal
             const modal = new ModalBuilder()
                 .setCustomId('cargo_details_modal')
                 .setTitle('Cargo Details');
@@ -193,14 +171,35 @@ module.exports = {
                 new ActionRowBuilder().addComponents(notesInput)
             );
 
-            await interaction.reply({ embeds: [priceEmbed], ephemeral: true });
-            await interaction.followUp({ content: 'Step 2: Enter cargo details', components: [], ephemeral: true });
+            // Show price info and modal
+            const priceEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle(`Current Prices for ${commodity.name}`);
+
+            if (prices?.bestLocation?.price) {
+                priceEmbed.addFields(
+                    { 
+                        name: '💰 Best Price', 
+                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                        inline: false 
+                    },
+                    { 
+                        name: '📊 Average Price', 
+                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        inline: false 
+                    }
+                );
+            } else {
+                priceEmbed.setDescription('No current price data available');
+            }
+
+            await interaction.editReply({ embeds: [priceEmbed], ephemeral: true });
             await interaction.showModal(modal);
 
         } catch (error) {
-            console.error('Error handling commodity selection:', error);
-            await interaction.reply({
-                content: 'An error occurred while getting price information.',
+            console.error('Error starting report:', error);
+            await interaction.editReply({
+                content: 'An error occurred while starting the report.',
                 ephemeral: true
             });
         }
@@ -262,7 +261,7 @@ module.exports = {
         }
 
         await interaction.reply({
-            content: 'Step 3: Select the crew members who participated in this hit',
+            content: 'Step 2: Select the crew members who participated in this hit',
             embeds: [embed],
             components: [row],
             ephemeral: true
