@@ -343,17 +343,23 @@ module.exports = {
                         : 'Avg: N/A'
                 }));
             
-            // Create commodity select menu
+            // Create commodity select menu and search button
             const commoditySelect = new StringSelectMenuBuilder()
                 .setCustomId('commodity_select')
                 .setPlaceholder('Select cargo type')
                 .addOptions(filteredCommodities);
 
-            const row = new ActionRowBuilder().addComponents(commoditySelect);
+            const searchButton = new ButtonBuilder()
+                .setCustomId('search_commodity')
+                .setLabel('🔍 Search Commodities')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
+            const row2 = new ActionRowBuilder().addComponents(searchButton);
 
             await interaction.reply({
-                content: 'Step 1: Select the type of cargo that was stolen',
-                components: [row],
+                content: 'Step 1: Select the type of cargo that was stolen\nOr use the search button to find other commodities',
+                components: [row1, row2],
                 ephemeral: true
             });
 
@@ -524,6 +530,146 @@ module.exports = {
             components: [buttons],
             ephemeral: true
         });
+    },
+
+    async handleSearchCommodity(interaction) {
+        try {
+            // Create search modal
+            const modal = new ModalBuilder()
+                .setCustomId('search_commodity_modal')
+                .setTitle('Search Commodities');
+
+            const searchInput = new TextInputBuilder()
+                .setCustomId('search_term')
+                .setLabel('Enter commodity name or code')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('e.g., SLAM or Widow')
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(searchInput)
+            );
+
+            await interaction.showModal(modal);
+
+        } catch (error) {
+            console.error('Error showing search modal:', error);
+            await interaction.reply({
+                content: 'An error occurred while opening search.',
+                ephemeral: true
+            });
+        }
+    },
+
+    async handleSearchModal(interaction) {
+        try {
+            const searchTerm = interaction.fields.getTextInputValue('search_term');
+            const commodities = await tradeScraper.getCommodities();
+            
+            // Search and filter commodities
+            const searchResults = tradeScraper.searchCommodities(commodities, searchTerm);
+            
+            if (searchResults.length === 0) {
+                await interaction.reply({
+                    content: 'No commodities found matching your search.',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            // Take top 25 results
+            const filteredResults = searchResults
+                .slice(0, 25)
+                .map(commodity => ({
+                    label: `${commodity.code} - ${commodity.name}`,
+                    value: commodity.value,
+                    description: commodity.avgPrice != null 
+                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                        : 'Avg: N/A'
+                }));
+
+            // Create select menu with results
+            const commoditySelect = new StringSelectMenuBuilder()
+                .setCustomId('commodity_select')
+                .setPlaceholder('Select cargo type')
+                .addOptions(filteredResults);
+
+            const searchButton = new ButtonBuilder()
+                .setCustomId('search_commodity')
+                .setLabel('🔍 Search Again')
+                .setStyle(ButtonStyle.Secondary);
+
+            const backButton = new ButtonBuilder()
+                .setCustomId('back_to_common')
+                .setLabel('⬅️ Back to Common')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
+            const row2 = new ActionRowBuilder().addComponents(searchButton, backButton);
+
+            const resultCount = searchResults.length;
+            const message = resultCount > 25 
+                ? `Found ${resultCount} matches. Showing top 25 results:`
+                : `Found ${resultCount} matches:`;
+
+            await interaction.reply({
+                content: message,
+                components: [row1, row2],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            console.error('Error handling search:', error);
+            await interaction.reply({
+                content: 'An error occurred while searching.',
+                ephemeral: true
+            });
+        }
+    },
+
+    async handleBackToCommon(interaction) {
+        try {
+            // Get list of commodities
+            const commodities = await tradeScraper.getCommodities();
+            
+            // Filter to just common commodities
+            const filteredCommodities = commodities
+                .slice(0, 25)
+                .map(commodity => ({
+                    label: `${commodity.code} - ${commodity.name}`,
+                    value: commodity.value,
+                    description: commodity.avgPrice != null 
+                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                        : 'Avg: N/A'
+                }));
+            
+            // Create commodity select menu and search button
+            const commoditySelect = new StringSelectMenuBuilder()
+                .setCustomId('commodity_select')
+                .setPlaceholder('Select cargo type')
+                .addOptions(filteredCommodities);
+
+            const searchButton = new ButtonBuilder()
+                .setCustomId('search_commodity')
+                .setLabel('🔍 Search Commodities')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
+            const row2 = new ActionRowBuilder().addComponents(searchButton);
+
+            await interaction.update({
+                content: 'Step 1: Select the type of cargo that was stolen\nOr use the search button to find other commodities',
+                components: [row1, row2],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            console.error('Error returning to common list:', error);
+            await interaction.reply({
+                content: 'An error occurred while returning to common commodities.',
+                ephemeral: true
+            });
+        }
     },
 
     async handleAddMoreCargo(interaction) {

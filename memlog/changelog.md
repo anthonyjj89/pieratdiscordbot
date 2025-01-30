@@ -1,4 +1,4 @@
-# Changelog
+ # Changelog
 
 ## [2025-01-31]
 
@@ -12,6 +12,7 @@
 - Added price info display after commodity selection
 - Added support for multiple cargo entries in hit reports
 - Improved hit report UI with multi-step cargo selection
+- Added advanced commodity search with relevance ranking
 
 ### Fixed
 - Fixed commodity selection handling

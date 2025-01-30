@@ -158,6 +158,51 @@ class TradeScraper {
             .replace(' and ', ' & ')
             .replace('Reclamation & Disposal', 'R&D');
     }
+
+    // Search and score commodities
+    searchCommodities(commodities, searchTerm) {
+        if (!searchTerm) return commodities;
+
+        const search = searchTerm.toLowerCase();
+        return commodities
+            .map(commodity => {
+                const score = this.getSearchScore(commodity, search);
+                return { ...commodity, score };
+            })
+            .filter(item => item.score > 0)
+            .sort((a, b) => b.score - a.score);
+    }
+
+    // Calculate search score for commodity
+    getSearchScore(commodity, search) {
+        const code = commodity.code.toLowerCase();
+        const name = commodity.name.toLowerCase();
+        const value = commodity.value.toLowerCase();
+
+        // Exact matches
+        if (code === search) return 100;
+        if (name === search) return 90;
+
+        // Starts with matches
+        if (code.startsWith(search)) return 80;
+        if (name.startsWith(search)) return 70;
+
+        // Contains matches
+        if (code.includes(search)) return 60;
+        if (name.includes(search)) return 50;
+
+        // Word matches
+        const words = name.split(' ');
+        for (const word of words) {
+            if (word.startsWith(search)) return 40;
+            if (word.includes(search)) return 30;
+        }
+
+        // Slug matches
+        if (value.includes(search)) return 20;
+
+        return 0;
+    }
 }
 
 module.exports = new TradeScraper();
