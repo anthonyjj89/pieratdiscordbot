@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ApplicationCommandOptionType } = require('discord.js');
 const tradeScraper = require('../services/tradeScraper');
 
 module.exports = {
@@ -7,8 +7,79 @@ module.exports = {
         .setDescription('Check current prices for a commodity')
         .addStringOption(option =>
             option.setName('commodity')
-                .setDescription('The commodity to check')
-                .setRequired(true)),
+                .setDescription('Start typing to search commodities')
+                .setRequired(true)
+                .setAutocomplete(true)),
+
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused().toUpperCase();
+            const commodities = await tradeScraper.getCommodities();
+
+            // If no input, return first 25 commodities
+            if (!focusedValue) {
+                const choices = commodities.slice(0, 25).map(c => ({
+                    name: `${c.code} - ${c.name}`,
+                    value: c.value
+                }));
+                await interaction.respond(choices);
+                return;
+            }
+
+            // Filter and sort commodities based on search term
+            const filtered = commodities
+                .map(c => {
+                    const score = this.getMatchScore(c, focusedValue);
+                    return { commodity: c, score };
+                })
+                .filter(item => item.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 25)
+                .map(item => ({
+                    name: `${item.commodity.code} - ${item.commodity.name}`,
+                    value: item.commodity.value
+                }));
+
+            await interaction.respond(filtered);
+        } catch (error) {
+            console.error('Error in autocomplete:', error);
+            await interaction.respond([]);
+        }
+    },
+
+    // Helper function to score matches
+    getMatchScore(commodity, search) {
+        const code = commodity.code.toUpperCase();
+        const name = commodity.name.toUpperCase();
+        const searchTerm = search.toUpperCase();
+
+        // Exact matches get highest score
+        if (code === searchTerm) return 100;
+        if (name === searchTerm) return 90;
+
+        // Code matches
+        if (code.startsWith(searchTerm)) return 80;
+        if (code.includes(searchTerm)) return 70;
+
+        // Name matches
+        if (name.startsWith(searchTerm)) return 60;
+        
+        // Word matches in name
+        const words = name.split(' ');
+        for (const word of words) {
+            if (word.startsWith(searchTerm)) return 50;
+            if (word.includes(searchTerm)) return 40;
+        }
+
+        // Partial matches in name
+        if (name.includes(searchTerm)) return 30;
+
+        // Match against slug (which contains full name in lowercase)
+        const slug = commodity.value.replace(/-/g, ' ');
+        if (slug.includes(searchTerm.toLowerCase())) return 20;
+
+        return 0;
+    },
 
     async execute(interaction) {
         await interaction.deferReply();

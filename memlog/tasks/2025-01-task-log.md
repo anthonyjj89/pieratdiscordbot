@@ -34,3 +34,21 @@
 | SCRP-UEX | Scraped 14 locations for gold | 2025-01-30T19:24:47.987Z |
 | SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:24:48.302Z |
 | SCRP-UEX | Scraped 19 locations for fluorine | 2025-01-30T19:24:48.859Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:24.454Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:24.881Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:25.255Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:25.574Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:25.891Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:26.214Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:26.549Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:26.878Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:32:27.191Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:20.019Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:20.480Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:20.857Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:21.184Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:21.514Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:21.845Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.194Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.531Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.925Z |
