@@ -88,37 +88,35 @@ module.exports = {
 
             embeds.push(mainEmbed);
 
-            // Add affiliated orgs
-            if (profileData.affiliatedOrgs?.length > 0) {
-                const affiliatedEmbed = new EmbedBuilder()
-                    .setColor('#2f3136')
-                    .setTitle('Affiliated Organizations');
+// Add affiliated orgs
+if (profileData.affiliatedOrgs?.length > 0) {
+    const affiliatedEmbed = new EmbedBuilder()
+        .setColor('#2f3136')
+        .setTitle('Affiliated Organizations')
+        .setDescription('**__Org List__**');
 
-                profileData.affiliatedOrgs.forEach((org, index) => {
-                    if (org.isRedacted) {
-                        affiliatedEmbed.addFields({
-                            name: `${index + 1}. [REDACTED]`,
-                            value: '\u200b',
-                            inline: false
-                        });
-                    } else {
-                        const orgEmbed = new EmbedBuilder()
-                            .setColor('#2f3136')
-                            .setTitle(`${index + 1}. ${org.name}`)
-                            .addFields(
-                                { name: 'Rank', value: org.rank, inline: true },
-                                { name: 'Members', value: org.memberCount.toString(), inline: true },
-                                { name: 'Organization ID', value: org.sid, inline: true }
-                            );
+    profileData.affiliatedOrgs.forEach((org, index) => {
+        if (org.isRedacted) {
+            affiliatedEmbed.addFields({
+                name: `Org ${index + 1}`,
+                value: '**[REDACTED]**',
+                inline: false
+            });
+        } else {
+            affiliatedEmbed.addFields({
+                name: `🏢 ${org.name} [${org.sid}]`,
+                value: [
+                    `• **Rank**: ${org.rank}`,
+                    `• **Members**: ${org.memberCount}`,
+                    `• **URL**: [RSI Page](${org.url})`
+                ].join('\n'),
+                inline: true
+            });
+        }
+    });
 
-                        if (org.logoUrl) {
-                            orgEmbed.setImage(org.logoUrl);
-                        }
-
-                        embeds.push(orgEmbed);
-                    }
-                });
-            }
+    embeds.push(affiliatedEmbed);
+}
 
             // Create report button
             const reportButton = embedBuilder.createReportButton();
