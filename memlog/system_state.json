@@ -1,0 +1,15 @@
+{
+  "last_execution": "2025-01-30T20:25:23+04:00",
+  "active_services": ["discord-client", "trade-scraper", "sqlite-db"],
+  "scraping_system": {
+    "last_uex_update": "2025-01-30T20:25:23+04:00",
+    "scrape_health": {
+      "success_rate": 0.0,
+      "avg_duration": 0.0
+    }
+  },
+  "uex_metrics": {
+    "commodities_tracked": 0,
+    "price_alerts_active": 0
+  }
+}

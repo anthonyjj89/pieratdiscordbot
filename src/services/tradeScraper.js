@@ -4,8 +4,16 @@ const path = require('path');
 
 class TradeScraper {
     constructor() {
+        // Initialize logging
+        this.logFile = 'memlog/tasks/2025-01-task-log.md';
+        
         // Load sample pages for parsing
         const samplesDir = path.join(__dirname, '../../RSI Page samples');
+        
+        // Ensure memlog directory exists
+        if (!fs.existsSync(path.dirname(this.logFile))) {
+            fs.mkdirSync(path.dirname(this.logFile), { recursive: true });
+        }
         this.commoditiesHtml = fs.readFileSync(path.join(samplesDir, 'UEX Page Com.html'), 'utf8');
         this.samplePriceHtml = fs.readFileSync(path.join(samplesDir, 'UEX Page Sample.html'), 'utf8');
     }
@@ -19,20 +27,30 @@ class TradeScraper {
     async getCommodities() {
         const $ = cheerio.load(this.commoditiesHtml);
         
-        return $('.label-commodity').map((i, el) => {
-            const $el = $(el);
-            const name = $el.find('span').first().text().trim();
-            const code = $el.find('span').first().text().trim();
-            const priceText = $el.find('span').last().text().trim();
-            const price = parseInt(priceText.match(/\d+/)?.[0] || '0');
-            
-            return {
-                name: name,
-                code: code,
-                value: $el.attr('slug'),
-                avgPrice: price
-            };
-        }).get();
+        try {
+            const results = $('.label-commodity').map((i, el) => {
+                const $el = $(el);
+                const name = $el.find('span').first().text().trim();
+                const code = $el.find('span').first().text().trim();
+                const priceText = $el.find('span').last().text().trim();
+                const price = parseInt(priceText.match(/\d+/)?.[0] || '0');
+                
+                return {
+                    name: name,
+                    code: code,
+                    value: $el.attr('slug'),
+                    avgPrice: price
+                };
+            }).get();
+
+            fs.appendFileSync(this.logFile, 
+                `| SCRP-UEX | Scraped ${results.length} commodities | ${new Date().toISOString()} |\n`);
+            return results;
+        } catch (error) {
+            fs.appendFileSync(this.logFile,
+                `| SCRP-FAIL | Commodity scrape failed: ${error.message} | ${new Date().toISOString()} |\n`);
+            throw error;
+        }
     }
 
     // Get prices for a specific commodity
