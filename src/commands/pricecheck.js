@@ -44,30 +44,34 @@ module.exports = {
                 .setTitle(`Prices for ${commodity.name}`)
                 .setDescription(`Last updated: ${new Date().toLocaleString()}`);
 
-            // Add best price field if available
-            if (prices.bestLocation && prices.bestLocation.price) {
+            // Add best location details
+            if (prices.bestLocation) {
+                const best = prices.bestLocation;
+                const noQuestionsIcon = best.isNoQuestions ? '👁️ ' : '';
+                const containerSizes = best.containerSizes.join(', ');
+                
                 embed.addFields({ 
                     name: '💰 Best Price', 
-                    value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                    value: [
+                        `${noQuestionsIcon}**${tradeScraper.formatLocationName(best.name)}** (${best.orbit}, ${best.system})`,
+                        `Price: ${tradeScraper.formatPrice(best.price.current)} aUEC/unit`,
+                        `Inventory: ${best.inventory.current} SCU`,
+                        `Container Sizes: ${containerSizes} SCU`,
+                        best.faction ? `Faction: ${best.faction}` : ''
+                    ].filter(Boolean).join('\n'),
                     inline: false 
                 });
             }
 
-            // Add average price if available
-            if (prices.averagePrice) {
-                embed.addFields({ 
-                    name: '📊 Average Price', 
-                    value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
-                    inline: false 
-                });
-            }
-
-            // Add other locations if available
+            // Add other locations
             if (prices.allLocations && prices.allLocations.length > 1) {
                 const otherLocations = prices.allLocations
                     .slice(1, 4) // Show next 3 best locations
-                    .filter(loc => loc && loc.price && loc.name) // Ensure valid data
-                    .map(loc => `${tradeScraper.formatLocationName(loc.name)}: ${tradeScraper.formatPrice(loc.price)} aUEC/unit`)
+                    .filter(loc => loc && loc.price && loc.name)
+                    .map(loc => {
+                        const noQuestionsIcon = loc.isNoQuestions ? '👁️ ' : '';
+                        return `${noQuestionsIcon}**${tradeScraper.formatLocationName(loc.name)}** (${loc.orbit}): ${tradeScraper.formatPrice(loc.price.current)} aUEC/unit`;
+                    })
                     .join('\n');
 
                 if (otherLocations) {
@@ -77,6 +81,22 @@ module.exports = {
                         inline: false
                     });
                 }
+            }
+
+            // Add price statistics
+            if (prices.allLocations && prices.allLocations.length > 0) {
+                const allPrices = prices.allLocations.map(loc => loc.price.current);
+                const minPrice = Math.min(...allPrices);
+                const maxPrice = Math.max(...allPrices);
+                
+                embed.addFields({
+                    name: '📊 Price Statistics',
+                    value: [
+                        `Average: ${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        `Range: ${tradeScraper.formatPrice(minPrice)} - ${tradeScraper.formatPrice(maxPrice)} aUEC/unit`
+                    ].join('\n'),
+                    inline: false
+                });
             }
 
             // Add box information if available
