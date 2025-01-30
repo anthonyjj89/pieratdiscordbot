@@ -158,11 +158,9 @@ client.on(Events.InteractionCreate, async interaction => {
             const lookupCommand = client.commands.get('lookup');
 
             try {
-                if (interaction.customId === 'commodity_select') {
-                    await lookupCommand.handleCommoditySelect(interaction);
-                } else if (interaction.customId.startsWith('role_select_')) {
-                    await lookupCommand.handleRoleSelect(interaction);
-                }
+            if (interaction.customId === 'commodity_select') {
+                await lookupCommand.handleCommoditySelect(interaction);
+            }
             } catch (error) {
                 console.error('Error handling select menu:', error);
                 await interaction.reply({

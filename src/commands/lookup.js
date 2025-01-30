@@ -324,30 +324,69 @@ module.exports = {
             interaction.client.reportData = interaction.client.reportData || {};
             interaction.client.reportData[interaction.user.id] = { username };
 
+            // Get list of commodities
+            const commodities = await tradeScraper.getCommodities();
+            
+            // Filter to just common commodities and ensure we stay within Discord's limit
+            const filteredCommodities = commodities
+                .slice(0, 25)
+                .map(commodity => ({
+                    label: `${commodity.code} - ${commodity.name}`,
+                    value: commodity.value,
+                    description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                }));
+            
+            // Create commodity select menu
+            const commoditySelect = new StringSelectMenuBuilder()
+                .setCustomId('commodity_select')
+                .setPlaceholder('Select cargo type')
+                .addOptions(filteredCommodities);
+
+            const row = new ActionRowBuilder().addComponents(commoditySelect);
+
+            await interaction.reply({
+                content: 'Step 1: Select the type of cargo that was stolen',
+                components: [row],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            console.error('Error showing commodity select:', error);
+            await interaction.reply({
+                content: 'An error occurred while starting the report.',
+                ephemeral: true
+            });
+        }
+    },
+
+    async handleCommoditySelect(interaction) {
+        const reportData = interaction.client.reportData[interaction.user.id];
+        const selectedCommodity = interaction.values[0];
+        reportData.commodity = selectedCommodity;
+
+        try {
+            // Get prices for selected commodity
+            const prices = await tradeScraper.getPrices(selectedCommodity);
+            reportData.prices = prices;
+
             // Create cargo details modal
             const modal = new ModalBuilder()
                 .setCustomId('cargo_details_modal')
                 .setTitle('Report Hit - Cargo Details');
 
-            const commodityInput = new TextInputBuilder()
-                .setCustomId('commodity')
-                .setLabel('Cargo Type (e.g., SLAM, GOLD)')
+            const scuInput = new TextInputBuilder()
+                .setCustomId('scu')
+                .setLabel('How many SCU?')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter cargo type')
-                .setRequired(true);
-
-            const boxesInput = new TextInputBuilder()
-                .setCustomId('boxes')
-                .setLabel('How many boxes?')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('e.g., 50')
+                .setPlaceholder('e.g., 100')
                 .setRequired(true);
 
             const locationInput = new TextInputBuilder()
                 .setCustomId('location')
                 .setLabel('Where will you sell?')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder('e.g., CRU-L5')
+                .setValue(prices?.bestLocation?.name || '')
+                .setPlaceholder('Best price location will be shown')
                 .setRequired(true);
 
             const notesInput = new TextInputBuilder()
@@ -358,46 +397,132 @@ module.exports = {
                 .setRequired(false);
 
             modal.addComponents(
-                new ActionRowBuilder().addComponents(commodityInput),
-                new ActionRowBuilder().addComponents(boxesInput),
+                new ActionRowBuilder().addComponents(scuInput),
                 new ActionRowBuilder().addComponents(locationInput),
                 new ActionRowBuilder().addComponents(notesInput)
             );
 
+            // Show price info and modal
+            const priceEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle(`Current Prices for ${selectedCommodity}`);
+
+            if (prices?.bestLocation?.price) {
+                priceEmbed.addFields(
+                    { 
+                        name: '💰 Best Price', 
+                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                        inline: false 
+                    },
+                    { 
+                        name: '📊 Average Price', 
+                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        inline: false 
+                    }
+                );
+            } else {
+                priceEmbed.setDescription('No current price data available');
+            }
+
+            await interaction.update({ 
+                content: 'Step 2: Enter cargo details',
+                embeds: [priceEmbed],
+                components: [],
+                ephemeral: true 
+            });
             await interaction.showModal(modal);
 
         } catch (error) {
-            console.error('Error showing modal:', error);
+            console.error('Error handling commodity selection:', error);
             await interaction.reply({
-                content: 'An error occurred while starting the report.',
+                content: 'An error occurred while getting price information.',
                 ephemeral: true
             });
         }
     },
 
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused().toUpperCase();
+            const commodities = await tradeScraper.getCommodities();
+
+            // If no input, return first 25 commodities
+            if (!focusedValue) {
+                const choices = commodities.slice(0, 25).map(c => ({
+                    name: `${c.code} - ${c.name}`,
+                    value: c.value
+                }));
+                await interaction.respond(choices);
+                return;
+            }
+
+            // Filter and sort commodities based on search term
+            const filtered = commodities
+                .map(c => {
+                    const score = this.getMatchScore(c, focusedValue);
+                    return { commodity: c, score };
+                })
+                .filter(item => item.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 25)
+                .map(item => ({
+                    name: `${item.commodity.code} - ${item.commodity.name}`,
+                    value: item.commodity.value
+                }));
+
+            await interaction.respond(filtered);
+        } catch (error) {
+            console.error('Error in autocomplete:', error);
+            await interaction.respond([]);
+        }
+    },
+
+    // Helper function to score matches
+    getMatchScore(commodity, search) {
+        const code = commodity.code.toUpperCase();
+        const name = commodity.name.toUpperCase();
+        const searchTerm = search.toUpperCase();
+
+        if (code === searchTerm) return 100;
+        if (name === searchTerm) return 90;
+        if (code.startsWith(searchTerm)) return 80;
+        if (code.includes(searchTerm)) return 70;
+        if (name.startsWith(searchTerm)) return 60;
+        
+        const words = name.split(' ');
+        for (const word of words) {
+            if (word.startsWith(searchTerm)) return 50;
+            if (word.includes(searchTerm)) return 40;
+        }
+
+        if (name.includes(searchTerm)) return 30;
+        const slug = commodity.value.replace(/-/g, ' ');
+        if (slug.includes(searchTerm.toLowerCase())) return 20;
+
+        return 0;
+    },
+
     async handleCargoDetails(interaction) {
         const reportData = interaction.client.reportData[interaction.user.id];
-        const commodity = interaction.fields.getTextInputValue('commodity').toUpperCase();
-        const boxes = parseInt(interaction.fields.getTextInputValue('boxes'));
+        const scu = parseInt(interaction.fields.getTextInputValue('scu'));
         const location = interaction.fields.getTextInputValue('location');
         const notes = interaction.fields.getTextInputValue('notes');
 
-        if (isNaN(boxes) || boxes <= 0) {
+        if (isNaN(scu) || scu <= 0) {
             await interaction.reply({
-                content: 'Please enter a valid number of boxes.',
+                content: 'Please enter a valid SCU amount.',
                 ephemeral: true
             });
             return;
         }
 
-        // Store cargo details
-        reportData.commodity = commodity;
-        reportData.boxes = boxes;
+        // Convert SCU to boxes (1 SCU = 1 box)
+        reportData.boxes = scu;
         reportData.location = location;
         reportData.notes = notes;
 
         // Get price info
-        const prices = await tradeScraper.getPrices(commodity);
+        const prices = await tradeScraper.getPrices(reportData.commodity);
         reportData.price = prices?.bestLocation?.price || 0;
 
         // Create crew modal
