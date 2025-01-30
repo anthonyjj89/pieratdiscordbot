@@ -415,6 +415,21 @@ module.exports = {
             member.role = selectedRole;
         }
 
+        // Create crew list embed
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('Current Crew Members')
+            .setDescription(
+                reportData.crew
+                    .filter(m => m.role) // Only show members with roles
+                    .map(m => {
+                        const user = interaction.client.users.cache.get(m.userId);
+                        const ratio = database.roleRatios[m.role];
+                        return `• ${user.username} - ${m.role} (${ratio}x ratio)`;
+                    })
+                    .join('\n') || 'No crew members added yet'
+            );
+
         // Create new crew selection with buttons
         const crewSelect = new UserSelectMenuBuilder()
             .setCustomId('crew_select')
@@ -430,9 +445,9 @@ module.exports = {
         const crewRow = new ActionRowBuilder().addComponents(crewSelect);
         const buttonRow = new ActionRowBuilder().addComponents(calculateButton);
 
-        const user = interaction.client.users.cache.get(userId);
         await interaction.update({
-            content: `Role set for ${user.username}. Select another crew member or click Calculate Shares when done.`,
+            content: 'Select another crew member or calculate shares when done:',
+            embeds: [embed],
             components: [crewRow, buttonRow]
         });
     },
@@ -479,9 +494,11 @@ module.exports = {
                 reportData.crew.map(member => {
                     const user = interaction.client.users.cache.get(member.userId);
                     const ratio = database.roleRatios[member.role];
+                    const sharePercent = (member.share * 100).toFixed(1);
+                    const shareAmount = Math.floor(reportData.amount * member.share).toLocaleString();
                     return {
                         name: `${user.username} - ${member.role}`,
-                        value: `Ratio: ${ratio} → ${(member.share * 100).toFixed(1)}% share`,
+                        value: `Ratio: ${ratio} → ${sharePercent}% (${shareAmount} aUEC)`,
                         inline: false
                     };
                 })

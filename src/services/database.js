@@ -9,6 +9,9 @@ class DatabaseService {
     }
 
     async initializeDatabase() {
+        // Drop and recreate crew_members table
+        const dropTable = `DROP TABLE IF EXISTS crew_members;`;
+        
         const createTables = `
             CREATE TABLE IF NOT EXISTS reports (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,13 +76,21 @@ class DatabaseService {
         `;
 
         return new Promise((resolve, reject) => {
-            this.db.exec(createTables, (err) => {
-                if (err) {
-                    console.error('Error creating tables:', err);
-                    reject(err);
-                } else {
-                    resolve();
+            this.db.exec(dropTable, (dropErr) => {
+                if (dropErr) {
+                    console.error('Error dropping crew_members table:', dropErr);
+                    reject(dropErr);
+                    return;
                 }
+                
+                this.db.exec(createTables, (err) => {
+                    if (err) {
+                        console.error('Error creating tables:', err);
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
             });
         });
     }
