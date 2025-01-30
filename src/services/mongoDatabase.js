@@ -35,6 +35,14 @@ const StorageSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 });
 
+const PaymentSchema = new mongoose.Schema({
+    hitId: { type: mongoose.Schema.Types.ObjectId, ref: 'Report', required: true },
+    payerId: { type: String, required: true },
+    receiverId: { type: String, required: true },
+    amount: { type: Number, required: true },
+    timestamp: { type: Date, default: Date.now }
+});
+
 const PiracyHitSchema = new mongoose.Schema({
     targetId: { type: String, required: true },
     isOrg: { type: Boolean, required: true },
@@ -49,6 +57,7 @@ const Report = mongoose.model('Report', ReportSchema);
 const CrewMember = mongoose.model('CrewMember', CrewMemberSchema);
 const Storage = mongoose.model('Storage', StorageSchema);
 const PiracyHit = mongoose.model('PiracyHit', PiracyHitSchema);
+const Payment = mongoose.model('Payment', PaymentSchema);
 
 class MongoDatabaseService {
     constructor() {
@@ -68,8 +77,12 @@ class MongoDatabaseService {
     async connect() {
         try {
             await mongoose.connect(process.env.MONGODB_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
+                ssl: true,
+                tls: true,
+                tlsAllowInvalidCertificates: false,
+                retryWrites: true,
+                w: 'majority',
+                serverSelectionTimeoutMS: 15000
             });
             console.log('Connected to MongoDB');
         } catch (error) {
@@ -230,6 +243,52 @@ class MongoDatabaseService {
                 org_member_handle: hit.orgHits[0]?.memberHandle
             }));
         }
+    }
+
+    async addPayment(payment) {
+        const newPayment = new Payment(payment);
+        const savedPayment = await newPayment.save();
+        return savedPayment._id;
+    }
+
+    async getUserBalance(userId, guildId) {
+        // Get all reports where user is a crew member
+        const reports = await Report.aggregate([
+            {
+                $lookup: {
+                    from: 'crewmembers',
+                    localField: '_id',
+                    foreignField: 'hitId',
+                    as: 'crew'
+                }
+            },
+            {
+                $match: {
+                    'crew.userId': userId,
+                    guildId: guildId
+                }
+            }
+        ]);
+
+        // Get all payments received by user
+        const payments = await Payment.find({ receiverId: userId });
+        const totalReceived = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
+        let totalShare = 0;
+
+        // Calculate total share value
+        for (const report of reports) {
+            const crewMember = report.crew.find(c => c.userId === userId);
+            if (crewMember) {
+                const totalValue = report.boxes * 100 * report.currentPrice;
+                totalShare += totalValue * crewMember.share;
+            }
+        }
+
+        return {
+            total_share: Math.floor(totalShare),
+            total_received: totalReceived
+        };
     }
 
     async getRecentPiracyHits(targetId, isOrg = false) {

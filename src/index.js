@@ -94,7 +94,11 @@ client.on(Events.InteractionCreate, async interaction => {
         // Handle button clicks
         if (interaction.isButton()) {
             const command = client.commands.get('lookup');
-            if (interaction.customId === 'report_piracy') {
+            const helpCommand = client.commands.get('help');
+
+            if (interaction.customId.startsWith('cmd_')) {
+                await helpCommand.handleButton(interaction);
+            } else if (interaction.customId === 'report_piracy') {
                 const username = interaction.message.embeds[0].title.split(': ')[1];
                 await command.handleReportButton(interaction, username);
             } else if (interaction.customId === 'crew_next') {
@@ -118,7 +122,11 @@ client.on(Events.InteractionCreate, async interaction => {
         // Handle modal submissions
         if (interaction.isModalSubmit()) {
             const command = client.commands.get('lookup');
-            if (interaction.customId.startsWith('piracy_report_')) {
+            const helpCommand = client.commands.get('help');
+
+            if (interaction.customId.startsWith('help_')) {
+                await helpCommand.handleModalSubmit(interaction);
+            } else if (interaction.customId.startsWith('piracy_report_')) {
                 await command.handleModalSubmit(interaction);
             } else if (interaction.customId === 'cargo_details_modal') {
                 const hitsCommand = client.commands.get('hits');
@@ -142,7 +150,11 @@ client.on(Events.InteractionCreate, async interaction => {
         // Handle user select menus
         if (interaction.isUserSelectMenu()) {
             const command = client.commands.get('lookup');
-            if (interaction.customId === 'crew_select') {
+            const helpCommand = client.commands.get('help');
+
+            if (interaction.customId === 'help_pay_user_select') {
+                await helpCommand.handleUserSelect(interaction);
+            } else if (interaction.customId === 'crew_select') {
                 await command.handleCrewSelect(interaction);
             } else if (interaction.customId === 'seller_select') {
                 const hitsCommand = client.commands.get('hits');
