@@ -16,6 +16,7 @@ class TradeScraper {
 
     // Format price with commas
     formatPrice(price) {
+        if (price == null) return 'N/A';
         return price.toLocaleString();
     }
 

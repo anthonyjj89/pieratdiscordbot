@@ -18,6 +18,7 @@
 - Fixed price data fetching in handleCargoDetails
 - Fixed crew share calculations
 - Fixed MongoDB TLS configuration conflicts
+- Fixed null price handling in commodity selection
 
 ### Known Issues
 - Discord Modal API limitations prevent autocomplete within modals

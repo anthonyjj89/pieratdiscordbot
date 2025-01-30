@@ -338,7 +338,9 @@ module.exports = {
                 .map(commodity => ({
                     label: `${commodity.code} - ${commodity.name}`,
                     value: commodity.value,
-                    description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                    description: commodity.avgPrice != null 
+                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                        : 'Avg: N/A'
                 }));
             
             // Create commodity select menu
@@ -535,7 +537,9 @@ module.exports = {
                 .map(commodity => ({
                     label: `${commodity.code} - ${commodity.name}`,
                     value: commodity.value,
-                    description: `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                    description: commodity.avgPrice != null 
+                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
+                        : 'Avg: N/A'
                 }));
             
             const commoditySelect = new StringSelectMenuBuilder()
