@@ -18,10 +18,16 @@ module.exports = {
 
             // If no input, return first 25 commodities
             if (!focusedValue) {
-                const choices = commodities.slice(0, 25).map(c => ({
-                    name: `${c.code} - ${c.name}`,
-                    value: c.value
-                }));
+                const choices = commodities.slice(0, 25).map(c => {
+                    // Get the full name from the slug
+                    const fullName = c.value.split('-').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+                    return {
+                        name: `${c.code} - ${fullName}`,
+                        value: c.value
+                    };
+                });
                 await interaction.respond(choices);
                 return;
             }
@@ -35,10 +41,16 @@ module.exports = {
                 .filter(item => item.score > 0)
                 .sort((a, b) => b.score - a.score)
                 .slice(0, 25)
-                .map(item => ({
-                    name: `${item.commodity.code} - ${item.commodity.name}`,
-                    value: item.commodity.value
-                }));
+                .map(item => {
+                    // Get the full name from the slug
+                    const fullName = item.commodity.value.split('-').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+                    return {
+                        name: `${item.commodity.code} - ${fullName}`,
+                        value: item.commodity.value
+                    };
+                });
 
             await interaction.respond(filtered);
         } catch (error) {
@@ -110,10 +122,15 @@ module.exports = {
                 return;
             }
 
+            // Get full name from slug
+            const fullName = commodity.value.split('-').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+
             // Create embed with price info
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle(`Prices for ${commodity.name}`)
+                .setTitle(`${commodity.code} - ${fullName}`)
                 .setURL(`https://uexcorp.space/commodities/info/name/${commodity.value}`)
                 .setDescription(commodity.isPriceNA ? '⚠️ Price data currently unavailable (N/A)' : `Last updated: ${new Date().toLocaleString()}`);
 

@@ -10,7 +10,7 @@ const {
     TextInputBuilder,
     TextInputStyle
 } = require('discord.js');
-const database = require('../services/database');
+const database = require('../services/mongoDatabase');
 const tradeScraper = require('../services/tradeScraper');
 const scraper = require('../services/scraper');
 
@@ -409,8 +409,8 @@ module.exports = {
 
         try {
             const page = interaction.options.getInteger('page') || 1;
-            const reports = await database.getReports(interaction.guildId, page);
-            const totalReports = await database.getTotalReports(interaction.guildId);
+            const reports = await database.getReports(null, page);
+            const totalReports = await database.getTotalReports(null);
             const totalPages = Math.ceil(totalReports / 5);
 
             if (reports.length === 0) {

@@ -9,16 +9,7 @@ class DatabaseService {
     }
 
     async initializeDatabase() {
-        // Drop all tables
-        const dropTables = `
-            DROP TABLE IF EXISTS crew_members;
-            DROP TABLE IF EXISTS user_piracy_hits;
-            DROP TABLE IF EXISTS org_piracy_hits;
-            DROP TABLE IF EXISTS reports;
-            DROP TABLE IF EXISTS storage;
-            DROP TABLE IF EXISTS payments;
-        `;
-        
+        // Only create tables if they don't exist
         const createTables = `
             CREATE TABLE IF NOT EXISTS reports (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,21 +74,13 @@ class DatabaseService {
         `;
 
         return new Promise((resolve, reject) => {
-            this.db.exec(dropTables, (dropErr) => {
-                if (dropErr) {
-                    console.error('Error dropping tables:', dropErr);
-                    reject(dropErr);
-                    return;
+            this.db.exec(createTables, (err) => {
+                if (err) {
+                    console.error('Error creating tables:', err);
+                    reject(err);
+                } else {
+                    resolve();
                 }
-                
-                this.db.exec(createTables, (err) => {
-                    if (err) {
-                        console.error('Error creating tables:', err);
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
             });
         });
     }
@@ -209,9 +192,9 @@ class DatabaseService {
         });
     }
 
-    async getReports(guildId, page = 1, limit = 5) {
+    async getReports(guildId = null, page = 1, limit = 5) {
         const offset = (page - 1) * limit;
-        const sql = `
+        const sql = guildId ? `
             SELECT 
                 r.*,
                 GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role || ',' || cm.role_ratio) as crew,
@@ -223,10 +206,22 @@ class DatabaseService {
             GROUP BY r.id
             ORDER BY r.timestamp DESC 
             LIMIT ? OFFSET ?
+        ` : `
+            SELECT 
+                r.*,
+                GROUP_CONCAT(DISTINCT cm.user_id || ',' || cm.share || ',' || cm.role || ',' || cm.role_ratio) as crew,
+                s.holder_id as storage_holder
+            FROM reports r
+            LEFT JOIN crew_members cm ON r.id = cm.hit_id
+            LEFT JOIN storage s ON r.id = s.hit_id
+            GROUP BY r.id
+            ORDER BY r.timestamp DESC 
+            LIMIT ? OFFSET ?
         `;
 
         return new Promise((resolve, reject) => {
-            this.db.all(sql, [guildId, limit, offset], (err, rows) => {
+            const params = guildId ? [guildId, limit, offset] : [limit, offset];
+            this.db.all(sql, params, (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -254,11 +249,14 @@ class DatabaseService {
         });
     }
 
-    async getTotalReports(guildId) {
-        const sql = 'SELECT COUNT(*) as count FROM reports WHERE guild_id = ?';
+    async getTotalReports(guildId = null) {
+        const sql = guildId ? 
+            'SELECT COUNT(*) as count FROM reports WHERE guild_id = ?' :
+            'SELECT COUNT(*) as count FROM reports';
         
         return new Promise((resolve, reject) => {
-            this.db.get(sql, [guildId], (err, row) => {
+            const params = guildId ? [guildId] : [];
+            this.db.get(sql, params, (err, row) => {
                 if (err) {
                     reject(err);
                 } else {

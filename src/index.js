@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const database = require('./services/database');
+const database = require('./services/mongoDatabase');
 
 // Create client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });

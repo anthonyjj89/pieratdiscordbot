@@ -52,3 +52,12 @@
 | SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.194Z |
 | SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.531Z |
 | SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:33:22.925Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:23.587Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:24.072Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:24.457Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:24.849Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:25.182Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:25.511Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:25.844Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:26.153Z |
+| SCRP-UEX | Scraped 92 commodities | 2025-01-30T19:39:26.523Z |

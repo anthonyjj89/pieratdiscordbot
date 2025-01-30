@@ -17,10 +17,15 @@ async function testAutocomplete(searchTerm) {
 
         // If no input, return first 25 commodities
         if (!searchTerm) {
-            const choices = commodities.slice(0, 25).map(c => ({
-                name: `${c.code} - ${c.name}`,
-                value: c.value
-            }));
+            const choices = commodities.slice(0, 25).map(c => {
+                const fullName = c.value.split('-').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+                return {
+                    name: `${c.code} - ${fullName}`,
+                    value: c.value
+                };
+            });
             console.log('First 25 commodities:');
             choices.forEach(c => console.log(`- ${c.name}`));
             return;
@@ -68,10 +73,15 @@ async function testAutocomplete(searchTerm) {
             .filter(item => item.score > 0)
             .sort((a, b) => b.score - a.score)
             .slice(0, 25)
-            .map(item => ({
-                name: `${item.commodity.code} - ${item.commodity.name}`,
-                value: item.commodity.value
-            }));
+            .map(item => {
+                const fullName = item.commodity.value.split('-').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+                return {
+                    name: `${item.commodity.code} - ${fullName}`,
+                    value: item.commodity.value
+                };
+            });
 
         if (filtered.length > 0) {
             console.log('Matches found:');
