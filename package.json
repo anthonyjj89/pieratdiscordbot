@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "build": "cd webapp && npm run build",
+    "build": "cd webapp && npm install && npm run build",
     "web:dev": "cd webapp && npm run dev",
     "web:build": "cd webapp && npm run build",
     "web:start": "cd webapp && npm start",
