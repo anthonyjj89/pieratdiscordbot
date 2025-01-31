@@ -4,7 +4,6 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ActionRowBuilder,
-    StringSelectMenuBuilder,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle
@@ -329,135 +328,25 @@ module.exports = {
                 currentStep: 'commodity_select'
             };
 
-            // Get list of commodities
-            const commodities = await tradeScraper.getCommodities();
-            
-            // Filter to just common commodities and ensure we stay within Discord's limit
-            const filteredCommodities = commodities
-                .slice(0, 25)
-                .map(commodity => ({
-                    label: `${commodity.code} - ${commodity.name}`,
-                    value: commodity.value,
-                    description: commodity.avgPrice != null 
-                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                        : 'Avg: N/A'
-                }));
-            
-            // Create commodity select menu and search button
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select cargo type')
-                .addOptions(filteredCommodities);
+            // Show Add Cargo button
+            const addCargoButton = new ButtonBuilder()
+                .setCustomId('add_cargo')
+                .setLabel('Add Cargo')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📦');
 
-            const searchButton = new ButtonBuilder()
-                .setCustomId('search_commodity')
-                .setLabel('🔍 Search Commodities')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
-            const row2 = new ActionRowBuilder().addComponents(searchButton);
+            const row = new ActionRowBuilder().addComponents(addCargoButton);
 
             await interaction.reply({
-                content: 'Step 1: Select the type of cargo that was stolen\nOr use the search button to find other commodities',
-                components: [row1, row2],
+                content: 'Step 1: Add cargo that was stolen',
+                components: [row],
                 ephemeral: true
             });
 
         } catch (error) {
-            console.error('Error showing commodity select:', error);
+            console.error('Error showing add cargo button:', error);
             await interaction.reply({
                 content: 'An error occurred while starting the report.',
-                ephemeral: true
-            });
-        }
-    },
-
-    async handleCommoditySelect(interaction) {
-        const reportData = interaction.client.reportData[interaction.user.id];
-        const selectedCommodity = interaction.values[0];
-
-        try {
-            // Get prices for selected commodity
-            const prices = await tradeScraper.getPrices(selectedCommodity);
-            
-            // Store commodity info
-            reportData.currentCommodity = {
-                type: selectedCommodity,
-                prices
-            };
-
-            // Create cargo details modal
-            const modal = new ModalBuilder()
-                .setCustomId('cargo_details_modal')
-                .setTitle('Report Hit - Cargo Details');
-
-            const scuInput = new TextInputBuilder()
-                .setCustomId('scu')
-                .setLabel('How many SCU?')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('e.g., 100')
-                .setRequired(true);
-
-            const locationInput = new TextInputBuilder()
-                .setCustomId('location')
-                .setLabel('Where will you sell?')
-                .setStyle(TextInputStyle.Short)
-                .setValue(prices?.bestLocation?.name || '')
-                .setPlaceholder('Best price location will be shown')
-                .setRequired(true);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(scuInput),
-                new ActionRowBuilder().addComponents(locationInput)
-            );
-
-            // Show price info and modal
-            const priceEmbed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle(`Current Prices for ${selectedCommodity}`);
-
-            if (prices?.bestLocation?.price) {
-                priceEmbed.addFields(
-                    { 
-                        name: '💰 Best Price', 
-                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
-                        inline: false 
-                    },
-                    { 
-                        name: '📊 Average Price', 
-                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
-                        inline: false 
-                    }
-                );
-            } else {
-                priceEmbed.setDescription('No current price data available');
-            }
-
-            // Create buttons
-            const buttons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('add_more_cargo')
-                    .setLabel('Add More Cargo')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId('continue_to_crew')
-                    .setLabel('Continue to Crew Selection')
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(true) // Disabled until at least one cargo is added
-            );
-
-            await interaction.update({ 
-                content: 'Step 2: Enter cargo details',
-                embeds: [priceEmbed],
-                components: [buttons],
-                ephemeral: true 
-            });
-            await interaction.showModal(modal);
-
-        } catch (error) {
-            console.error('Error handling commodity selection:', error);
-            await interaction.reply({
-                content: 'An error occurred while getting price information.',
                 ephemeral: true
             });
         }
@@ -511,7 +400,7 @@ module.exports = {
             }
         );
 
-        // Update buttons
+        // Create buttons
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('add_more_cargo')
@@ -524,7 +413,7 @@ module.exports = {
                 .setDisabled(false)
         );
 
-        await interaction.update({
+        await interaction.reply({
             content: 'Cargo added successfully! You can add more cargo or continue to crew selection.',
             embeds: [summaryEmbed],
             components: [buttons],
@@ -532,177 +421,25 @@ module.exports = {
         });
     },
 
-    async handleSearchCommodity(interaction) {
-        try {
-            // Create search modal
-            const modal = new ModalBuilder()
-                .setCustomId('search_commodity_modal')
-                .setTitle('Search Commodities');
-
-            const searchInput = new TextInputBuilder()
-                .setCustomId('search_term')
-                .setLabel('Enter commodity name or code')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('e.g., SLAM or Widow')
-                .setRequired(true);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(searchInput)
-            );
-
-            await interaction.showModal(modal);
-
-        } catch (error) {
-            console.error('Error showing search modal:', error);
-            await interaction.reply({
-                content: 'An error occurred while opening search.',
-                ephemeral: true
-            });
-        }
-    },
-
-    async handleSearchModal(interaction) {
-        try {
-            const searchTerm = interaction.fields.getTextInputValue('search_term');
-            const commodities = await tradeScraper.getCommodities();
-            
-            // Search and filter commodities
-            const searchResults = tradeScraper.searchCommodities(commodities, searchTerm);
-            
-            if (searchResults.length === 0) {
-                await interaction.reply({
-                    content: 'No commodities found matching your search.',
-                    ephemeral: true
-                });
-                return;
-            }
-
-            // Take top 25 results
-            const filteredResults = searchResults
-                .slice(0, 25)
-                .map(commodity => ({
-                    label: `${commodity.code} - ${commodity.name}`,
-                    value: commodity.value,
-                    description: commodity.avgPrice != null 
-                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                        : 'Avg: N/A'
-                }));
-
-            // Create select menu with results
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select cargo type')
-                .addOptions(filteredResults);
-
-            const searchButton = new ButtonBuilder()
-                .setCustomId('search_commodity')
-                .setLabel('🔍 Search Again')
-                .setStyle(ButtonStyle.Secondary);
-
-            const backButton = new ButtonBuilder()
-                .setCustomId('back_to_common')
-                .setLabel('⬅️ Back to Common')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
-            const row2 = new ActionRowBuilder().addComponents(searchButton, backButton);
-
-            const resultCount = searchResults.length;
-            const message = resultCount > 25 
-                ? `Found ${resultCount} matches. Showing top 25 results:`
-                : `Found ${resultCount} matches:`;
-
-            await interaction.reply({
-                content: message,
-                components: [row1, row2],
-                ephemeral: true
-            });
-
-        } catch (error) {
-            console.error('Error handling search:', error);
-            await interaction.reply({
-                content: 'An error occurred while searching.',
-                ephemeral: true
-            });
-        }
-    },
-
-    async handleBackToCommon(interaction) {
-        try {
-            // Get list of commodities
-            const commodities = await tradeScraper.getCommodities();
-            
-            // Filter to just common commodities
-            const filteredCommodities = commodities
-                .slice(0, 25)
-                .map(commodity => ({
-                    label: `${commodity.code} - ${commodity.name}`,
-                    value: commodity.value,
-                    description: commodity.avgPrice != null 
-                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                        : 'Avg: N/A'
-                }));
-            
-            // Create commodity select menu and search button
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select cargo type')
-                .addOptions(filteredCommodities);
-
-            const searchButton = new ButtonBuilder()
-                .setCustomId('search_commodity')
-                .setLabel('🔍 Search Commodities')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row1 = new ActionRowBuilder().addComponents(commoditySelect);
-            const row2 = new ActionRowBuilder().addComponents(searchButton);
-
-            await interaction.update({
-                content: 'Step 1: Select the type of cargo that was stolen\nOr use the search button to find other commodities',
-                components: [row1, row2],
-                ephemeral: true
-            });
-
-        } catch (error) {
-            console.error('Error returning to common list:', error);
-            await interaction.reply({
-                content: 'An error occurred while returning to common commodities.',
-                ephemeral: true
-            });
-        }
-    },
-
     async handleAddMoreCargo(interaction) {
         try {
-            // Get list of commodities
-            const commodities = await tradeScraper.getCommodities();
-            
-            // Filter and create select menu
-            const filteredCommodities = commodities
-                .slice(0, 25)
-                .map(commodity => ({
-                    label: `${commodity.code} - ${commodity.name}`,
-                    value: commodity.value,
-                    description: commodity.avgPrice != null 
-                        ? `Avg: ${tradeScraper.formatPrice(commodity.avgPrice)} aUEC/unit`
-                        : 'Avg: N/A'
-                }));
-            
-            const commoditySelect = new StringSelectMenuBuilder()
-                .setCustomId('commodity_select')
-                .setPlaceholder('Select additional cargo type')
-                .addOptions(filteredCommodities);
+            // Show Add Cargo button
+            const addCargoButton = new ButtonBuilder()
+                .setCustomId('add_cargo')
+                .setLabel('Add More Cargo')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📦');
 
-            const row = new ActionRowBuilder().addComponents(commoditySelect);
+            const row = new ActionRowBuilder().addComponents(addCargoButton);
 
             await interaction.update({
-                content: 'Select additional cargo type:',
+                content: 'Add more cargo:',
                 components: [row],
                 ephemeral: true
             });
 
         } catch (error) {
-            console.error('Error adding more cargo:', error);
+            console.error('Error showing add cargo button:', error);
             await interaction.reply({
                 content: 'An error occurred while adding more cargo.',
                 ephemeral: true

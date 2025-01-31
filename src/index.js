@@ -99,6 +99,7 @@ client.on(Events.InteractionCreate, async interaction => {
             const lookupCommand = client.commands.get('lookup');
             const helpCommand = client.commands.get('help');
             const hitsCommand = client.commands.get('hits');
+            const cargoCommand = client.commands.get('cargo');
 
             try {
                 if (interaction.customId.startsWith('cmd_')) {
@@ -106,16 +107,12 @@ client.on(Events.InteractionCreate, async interaction => {
                 } else if (interaction.customId === 'report_piracy') {
                     const username = interaction.message.embeds[0].title.split(': ')[1];
                     await lookupCommand.handleReportButton(interaction, username);
-                } else if (interaction.customId === 'search_commodity') {
-                    await lookupCommand.handleSearchCommodity(interaction);
-                } else if (interaction.customId === 'back_to_common') {
-                    await lookupCommand.handleBackToCommon(interaction);
+                } else if (interaction.customId === 'add_cargo') {
+                    await interaction.showModal(cargoCommand.createModal());
                 } else if (interaction.customId === 'add_more_cargo') {
                     await lookupCommand.handleAddMoreCargo(interaction);
                 } else if (interaction.customId === 'continue_to_crew') {
                     await lookupCommand.handleContinueToCrew(interaction);
-                } else if (interaction.customId === 'confirm_shares') {
-                    await lookupCommand.handleConfirmShares(interaction);
                 } else if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
                     const currentPage = parseInt(interaction.message.embeds[0].description.split('/')[0].split(' ')[1]);
                     const newPage = interaction.customId === 'prev_page' ? currentPage - 1 : currentPage + 1;
@@ -140,14 +137,13 @@ client.on(Events.InteractionCreate, async interaction => {
         if (interaction.isModalSubmit()) {
             const lookupCommand = client.commands.get('lookup');
             const helpCommand = client.commands.get('help');
+            const cargoCommand = client.commands.get('cargo');
 
             try {
                 if (interaction.customId.startsWith('help_')) {
                     await helpCommand.handleModalSubmit(interaction);
-                } else if (interaction.customId === 'search_commodity_modal') {
-                    await lookupCommand.handleSearchModal(interaction);
                 } else if (interaction.customId === 'cargo_details_modal') {
-                    await lookupCommand.handleCargoDetails(interaction);
+                    await cargoCommand.handleCargoDetails(interaction);
                 } else if (interaction.customId === 'crew_details_modal') {
                     await lookupCommand.handleCrewDetails(interaction);
                 } else if (interaction.customId === 'confirm_report_modal') {
@@ -157,24 +153,6 @@ client.on(Events.InteractionCreate, async interaction => {
                 console.error('Error handling modal submit:', error);
                 await interaction.reply({
                     content: 'An error occurred while processing the form.',
-                    ephemeral: true
-                });
-            }
-            return;
-        }
-
-        // Handle select menus
-        if (interaction.isStringSelectMenu()) {
-            const lookupCommand = client.commands.get('lookup');
-
-            try {
-            if (interaction.customId === 'commodity_select') {
-                await lookupCommand.handleCommoditySelect(interaction);
-            }
-            } catch (error) {
-                console.error('Error handling select menu:', error);
-                await interaction.reply({
-                    content: 'An error occurred while processing your selection.',
                     ephemeral: true
                 });
             }

@@ -13,6 +13,7 @@
 - Added support for multiple cargo entries in hit reports
 - Improved hit report UI with multi-step cargo selection
 - Added advanced commodity search with relevance ranking
+- Replaced commodity selection with autocomplete command
 
 ### Fixed
 - Fixed commodity selection handling
