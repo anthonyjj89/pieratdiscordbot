@@ -14,6 +14,7 @@
 - Improved hit report UI with multi-step cargo selection
 - Added advanced commodity search with relevance ranking
 - Improved commodity selection with search and common items
+- Fixed select menu handling in report flow
 
 ### Fixed
 - Fixed commodity selection handling

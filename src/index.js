@@ -163,6 +163,24 @@ client.on(Events.InteractionCreate, async interaction => {
             return;
         }
 
+        // Handle string select menus
+        if (interaction.isStringSelectMenu()) {
+            const lookupCommand = client.commands.get('lookup');
+
+            try {
+                if (interaction.customId === 'commodity_select') {
+                    await lookupCommand.handleCommoditySelect(interaction);
+                }
+            } catch (error) {
+                console.error('Error handling select menu:', error);
+                await interaction.reply({
+                    content: 'An error occurred while processing your selection.',
+                    ephemeral: true
+                });
+            }
+            return;
+        }
+
         // Handle user select menus
         if (interaction.isUserSelectMenu()) {
             const lookupCommand = client.commands.get('lookup');

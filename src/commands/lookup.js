@@ -536,6 +536,82 @@ module.exports = {
         }
     },
 
+    async handleCommoditySelect(interaction) {
+        try {
+            const reportData = interaction.client.reportData[interaction.user.id];
+            const selectedCommodity = interaction.values[0];
+            const prices = await tradeScraper.getPrices(selectedCommodity);
+            
+            // Store commodity info
+            reportData.currentCommodity = {
+                type: selectedCommodity,
+                prices
+            };
+
+            // Create cargo details modal
+            const modal = new ModalBuilder()
+                .setCustomId('cargo_details_modal')
+                .setTitle('Report Hit - Cargo Details');
+
+            const scuInput = new TextInputBuilder()
+                .setCustomId('scu')
+                .setLabel('How many SCU?')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('e.g., 100')
+                .setRequired(true);
+
+            const locationInput = new TextInputBuilder()
+                .setCustomId('location')
+                .setLabel('Where will you sell?')
+                .setStyle(TextInputStyle.Short)
+                .setValue(prices?.bestLocation?.name || '')
+                .setPlaceholder('Best price location will be shown')
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(scuInput),
+                new ActionRowBuilder().addComponents(locationInput)
+            );
+
+            // Show price info and modal
+            const priceEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle(`Current Prices for ${selectedCommodity}`);
+
+            if (prices?.bestLocation?.price) {
+                priceEmbed.addFields(
+                    { 
+                        name: '💰 Best Price', 
+                        value: `${tradeScraper.formatPrice(prices.bestLocation.price)} aUEC/unit at ${tradeScraper.formatLocationName(prices.bestLocation.name)}`,
+                        inline: false 
+                    },
+                    { 
+                        name: '📊 Average Price', 
+                        value: `${tradeScraper.formatPrice(prices.averagePrice)} aUEC/unit`,
+                        inline: false 
+                    }
+                );
+            } else {
+                priceEmbed.setDescription('No current price data available');
+            }
+
+            await interaction.update({ 
+                content: 'Step 2: Enter cargo details',
+                embeds: [priceEmbed],
+                components: [],
+                ephemeral: true 
+            });
+            await interaction.showModal(modal);
+
+        } catch (error) {
+            console.error('Error handling commodity selection:', error);
+            await interaction.reply({
+                content: 'An error occurred while getting price information.',
+                ephemeral: true
+            });
+        }
+    },
+
     async handleBackToCommon(interaction) {
         try {
             // Get list of commodities
