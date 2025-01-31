@@ -1,25 +1,39 @@
 {
-  "name": "sc-name-check",
+  "name": "pierat",
   "version": "1.0.0",
-  "description": "Discord bot for looking up Star Citizen player profiles",
+  "description": "Star Citizen piracy management system with Discord bot and web interface",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "dev": "nodemon src/index.js",
+    "web:dev": "cd webapp && npm run dev",
+    "web:build": "cd webapp && npm run build",
+    "web:start": "cd webapp && npm start",
+    "postinstall": "cd webapp && npm install",
+    "generate-secret": "node scripts/generate-secret.js"
   },
   "keywords": [
     "discord",
     "bot",
-    "star-citizen"
+    "star citizen",
+    "piracy",
+    "next.js"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "discord.js": "^14.0.0",
-    "dotenv": "^16.0.0",
-    "mongoose": "^8.9.5",
-    "sqlite3": "^5.1.7"
+    "@discordjs/builders": "^1.7.0",
+    "@discordjs/rest": "^2.2.0",
+    "discord-api-types": "^0.37.67",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "mongodb": "^6.3.0",
+    "mongoose": "^8.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

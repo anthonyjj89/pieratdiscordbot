@@ -1,63 +1,101 @@
-# Star Citizen Profile Lookup Bot
+# PieRat - Star Citizen Piracy Management
 
-A Discord bot that allows users to look up Star Citizen player profiles directly in Discord.
+A comprehensive system for managing Star Citizen piracy operations, including a Discord bot and web interface.
 
-## Features
+## Services
 
-- Lookup Star Citizen profiles using `/lookup [username]`
-- Displays profile information including:
-  - Handle/Username
-  - Enlistment date
-  - Location
-  - Organization details
+### Discord Bot
+- Profile lookup with piracy history
+- Hit reporting and tracking
+- Crew management and profit sharing
+- Price checking and cargo value calculation
 
-## Setup
+### Web Interface
+- Dashboard with analytics
+- Detailed hit reports
+- Organization management
+- Crew performance tracking
+- Advanced search and filtering
 
-1. Clone the repository
-```bash
-git clone https://github.com/anthonyjj89/pieratdiscordbot.git
-cd pieratdiscordbot
+## Prerequisites
+
+- Node.js 18+
+- MongoDB
+- Discord application credentials
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```env
+# Discord Bot
+DISCORD_TOKEN=           # Your bot token
+CLIENT_ID=              # Bot client ID
+GUILD_ID=               # Your Discord server ID
+
+# MongoDB
+MONGODB_URI=            # MongoDB connection string
+
+# Web App (NextAuth)
+NEXTAUTH_URL=           # Railway URL (e.g., https://your-app.up.railway.app)
+NEXTAUTH_SECRET=        # Generate with: openssl rand -base64 32
+DISCORD_CLIENT_ID=      # OAuth application client ID
+DISCORD_CLIENT_SECRET=  # OAuth application client secret
 ```
 
-2. Install dependencies
+## Development
+
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Create a `.env` file with your Discord bot credentials:
-```
-DISCORD_TOKEN=your_bot_token
-CLIENT_ID=your_client_id
-```
-
-4. Deploy slash commands
+2. Start the Discord bot:
 ```bash
-npm run deploy
+npm run dev
 ```
 
-5. Start the bot
+3. Start the web app:
 ```bash
-npm start
+npm run web:dev
 ```
 
-## Usage
+## Deployment
 
-Once the bot is running and invited to your server, use:
+The project is configured for deployment on Railway:
+
+1. Create a new Railway project
+2. Add MongoDB service
+3. Configure environment variables
+4. Connect your GitHub repository
+5. Railway will automatically deploy both services
+
+## Project Structure
+
 ```
-/lookup username
+/
+├── src/                # Discord bot source
+│   ├── commands/      # Bot commands
+│   ├── services/      # Shared services
+│   └── utils/         # Utility functions
+│
+└── webapp/            # Next.js web application
+    ├── src/
+    │   ├── app/      # Next.js pages
+    │   ├── components/
+    │   ├── lib/      # Utilities
+    │   └── models/   # MongoDB models
+    └── public/       # Static assets
 ```
-Replace `username` with the Star Citizen handle you want to look up.
 
-## Hosting
+## Contributing
 
-This bot is designed to be hosted on Railway.app. To deploy:
-
-1. Fork this repository
-2. Create a new project on Railway.app
-3. Connect your GitHub repository
-4. Add environment variables (DISCORD_TOKEN and CLIENT_ID)
-5. Deploy!
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-ISC
+MIT
