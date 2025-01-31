@@ -21,6 +21,7 @@
 - Fixed crew share calculations
 - Fixed MongoDB TLS configuration conflicts
 - Fixed null price handling in commodity selection
+- Fixed missing StringSelectMenuBuilder import
 
 ### Known Issues
 - Discord Modal API limitations prevent autocomplete within modals

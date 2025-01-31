@@ -4,6 +4,7 @@ const {
     ButtonBuilder,
     ButtonStyle,
     ActionRowBuilder,
+    StringSelectMenuBuilder,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle
