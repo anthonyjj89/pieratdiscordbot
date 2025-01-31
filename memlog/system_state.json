@@ -1,50 +1,59 @@
 {
-    "lastUpdate": "2025-01-31T01:38:12+04:00",
-    "version": "1.0.0",
-    "status": {
-        "database": {
-            "type": "MongoDB",
-            "connection": "active",
-            "migrations": "complete",
-            "models": [
-                "Report",
-                "CrewMember",
-                "Storage",
-                "PiracyHit",
-                "Payment",
-                "CargoEntry"
-            ]
-        },
-        "features": {
-            "profileLookup": "operational",
-            "hitReporting": "operational",
-            "paymentTracking": "operational",
-            "priceChecking": "operational"
-        },
-        "ui": {
-            "reportFlow": "modal-based",
-            "commoditySelection": "dropdown with search",
-            "locationSelection": "text input with pre-fill",
-            "crewSelection": "modal-based"
-        },
-        "activeSystems": {
-            "webScraping": true,
-            "priceTracking": true,
-            "shareCalculations": true,
-            "historyTracking": true
-        }
+  "lastUpdated": "2025-02-01T00:10:31+04:00",
+  "repositories": {
+    "pieratdiscordbot": {
+      "path": "e:/CODING PROJECTS/SC Name Check",
+      "status": "stable",
+      "deployment": "railway",
+      "currentFeatures": [
+        "player lookup",
+        "cargo info",
+        "basic MongoDB integration"
+      ],
+      "nextSteps": [
+        "simplify commands",
+        "add webapp links",
+        "improve error handling"
+      ]
     },
-    "pendingImprovements": [
-        "Location selection dropdown",
-        "Better error handling",
-        "SCU validation",
-        "Price data caching",
-        "Crew role selection UI"
-    ],
-    "knownIssues": [
-        "No autocomplete in modals",
-        "Limited to 25 select options",
-        "UEX timeouts",
-        "Basic input validation"
-    ]
+    "pieratwebapp": {
+      "path": "e:/CODING PROJECTS/pieratwebapp",
+      "status": "in_progress",
+      "deployment": "vercel",
+      "currentFeatures": [
+        "project structure",
+        "basic landing page",
+        "tailwind setup"
+      ],
+      "nextSteps": [
+        "remove auth temporarily",
+        "create static pages",
+        "add sample data"
+      ]
+    }
+  },
+  "environment": {
+    "mongodb": {
+      "status": "connected",
+      "database": "sc-name-check",
+      "collections": [
+        "users",
+        "reports",
+        "organizations"
+      ]
+    },
+    "discord": {
+      "status": "configured",
+      "commands": [
+        "lookup",
+        "cargo"
+      ]
+    }
+  },
+  "priorities": [
+    "Fix webapp deployment",
+    "Create static organization page",
+    "Add report form",
+    "Test bot-to-webapp links"
+  ]
 }
