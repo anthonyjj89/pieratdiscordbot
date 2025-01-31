@@ -107,8 +107,10 @@ client.on(Events.InteractionCreate, async interaction => {
                 } else if (interaction.customId === 'report_piracy') {
                     const username = interaction.message.embeds[0].title.split(': ')[1];
                     await lookupCommand.handleReportButton(interaction, username);
-                } else if (interaction.customId === 'add_cargo') {
-                    await interaction.showModal(cargoCommand.createModal());
+                } else if (interaction.customId === 'search_commodity') {
+                    await lookupCommand.handleSearchCommodity(interaction);
+                } else if (interaction.customId === 'back_to_common') {
+                    await lookupCommand.handleBackToCommon(interaction);
                 } else if (interaction.customId === 'add_more_cargo') {
                     await lookupCommand.handleAddMoreCargo(interaction);
                 } else if (interaction.customId === 'continue_to_crew') {
@@ -142,8 +144,10 @@ client.on(Events.InteractionCreate, async interaction => {
             try {
                 if (interaction.customId.startsWith('help_')) {
                     await helpCommand.handleModalSubmit(interaction);
+                } else if (interaction.customId === 'search_commodity_modal') {
+                    await lookupCommand.handleSearchModal(interaction);
                 } else if (interaction.customId === 'cargo_details_modal') {
-                    await cargoCommand.handleCargoDetails(interaction);
+                    await lookupCommand.handleCargoDetails(interaction);
                 } else if (interaction.customId === 'crew_details_modal') {
                     await lookupCommand.handleCrewDetails(interaction);
                 } else if (interaction.customId === 'confirm_report_modal') {
