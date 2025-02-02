@@ -1,3 +1,6 @@
+# Webapp (separate repository)
+webapp/
+
 # Dependencies
 node_modules/
 .pnp/

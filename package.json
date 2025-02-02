@@ -1,41 +1,25 @@
 {
   "name": "pierat",
   "version": "1.0.0",
-  "description": "Star Citizen piracy management system with Discord bot and web interface",
-  "main": "src/index.js",
-  "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "build": "cd webapp && npm install && npm run build",
-    "web:dev": "cd webapp && npm run dev",
-    "web:build": "cd webapp && npm run build",
-    "web:start": "cd webapp && npm start",
-    "postinstall": "cd webapp && npm install",
-    "generate-secret": "node scripts/generate-secret.js"
-  },
-  "keywords": [
-    "discord",
+  "private": true,
+  "workspaces": [
     "bot",
-    "star citizen",
-    "piracy",
-    "next.js"
+    "shared",
+    "webapp"
   ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@discordjs/builders": "^1.7.0",
-    "@discordjs/rest": "^2.2.0",
-    "cheerio": "^1.0.0-rc.12",
-    "discord-api-types": "^0.37.67",
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1",
-    "mongodb": "^6.3.0",
-    "mongoose": "^8.1.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.3"
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev:bot": "npm run dev -w bot",
+    "dev:web": "npm run dev -w webapp",
+    "build:shared": "npm run build -w shared",
+    "deploy:bot": "npm run deploy-commands -w bot",
+    "test": "npm run test --workspaces"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
   }
 }

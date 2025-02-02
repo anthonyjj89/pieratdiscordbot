@@ -1,21 +1,35 @@
 # PieRat - Star Citizen Piracy Management
 
-A comprehensive system for managing Star Citizen piracy operations, including a Discord bot and web interface.
+A comprehensive system for managing Star Citizen piracy operations, consisting of a Discord bot for lookups and a web interface for hit reporting.
+
+## Project Structure
+
+This is a monorepo containing three main packages:
+
+```
+/
+├── bot/                # Discord bot for lookups
+│   ├── src/           # Bot source code
+│   └── tests/         # Bot tests
+├── shared/            # Shared code between bot and webapp
+│   ├── models/        # MongoDB models
+│   └── types/         # TypeScript types
+└── webapp/            # Next.js web application
+    └── src/           # Webapp source code
+```
 
 ## Services
 
 ### Discord Bot
-- Profile lookup with piracy history
-- Hit reporting and tracking
-- Crew management and profit sharing
-- Price checking and cargo value calculation
+- Player profile lookup with organization history
+- Cargo price checking and location info
+- Links to webapp for hit reporting
 
 ### Web Interface
-- Dashboard with analytics
-- Detailed hit reports
-- Organization management
-- Crew performance tracking
-- Advanced search and filtering
+- Multi-tenant organization support
+- Hit reporting and tracking
+- Crew management and profit sharing
+- Historical data and analytics
 
 ## Prerequisites
 
@@ -37,7 +51,7 @@ GUILD_ID=               # Your Discord server ID
 MONGODB_URI=            # MongoDB connection string
 
 # Web App (NextAuth)
-NEXTAUTH_URL=           # Railway URL (e.g., https://your-app.up.railway.app)
+NEXTAUTH_URL=           # Vercel URL (e.g., https://your-app.vercel.app)
 NEXTAUTH_SECRET=        # Generate with: openssl rand -base64 32
 DISCORD_CLIENT_ID=      # OAuth application client ID
 DISCORD_CLIENT_SECRET=  # OAuth application client secret
@@ -50,43 +64,47 @@ DISCORD_CLIENT_SECRET=  # OAuth application client secret
 npm install
 ```
 
-2. Start the Discord bot:
+2. Build shared code:
 ```bash
-npm run dev
+npm run build:shared
 ```
 
-3. Start the web app:
+3. Start the Discord bot:
 ```bash
-npm run web:dev
+npm run dev:bot
+```
+
+4. Start the web app:
+```bash
+npm run dev:web
 ```
 
 ## Deployment
 
-The project is configured for deployment on Railway:
+The project uses different deployment platforms:
 
-1. Create a new Railway project
-2. Add MongoDB service
-3. Configure environment variables
-4. Connect your GitHub repository
-5. Railway will automatically deploy both services
+### Discord Bot
+- Deployed on Railway
+- Auto-deploys from main branch
+- Environment variables configured in Railway dashboard
 
-## Project Structure
+### Web App
+- Deployed on Vercel
+- Auto-deploys from main branch of webapp repository
+- Environment variables configured in Vercel dashboard
 
-```
-/
-├── src/                # Discord bot source
-│   ├── commands/      # Bot commands
-│   ├── services/      # Shared services
-│   └── utils/         # Utility functions
-│
-└── webapp/            # Next.js web application
-    ├── src/
-    │   ├── app/      # Next.js pages
-    │   ├── components/
-    │   ├── lib/      # Utilities
-    │   └── models/   # MongoDB models
-    └── public/       # Static assets
-```
+## Git Workflow
+
+The project uses two repositories:
+
+1. Main Repository (this one):
+   - Contains bot code and shared modules
+   - Push directly to this repo for bot and shared code changes
+
+2. Webapp Repository:
+   - Located in webapp/
+   - Has its own .git
+   - Push webapp changes from the webapp directory
 
 ## Contributing
 

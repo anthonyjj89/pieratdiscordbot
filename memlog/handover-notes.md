@@ -2,16 +2,18 @@
 
 ## Project Structure
 
-We have two main repositories:
-1. pieratdiscordbot (Discord bot)
+We have two independent repositories:
+1. pieratdiscordbot (Utility Bot)
    - Located at: e:/CODING PROJECTS/SC Name Check
-   - Purpose: Basic player lookups and cargo info
+   - Purpose: Player lookups and cargo price checks
    - Deployed on Railway
+   - Provides links to webapp for hit reporting
 
-2. pieratwebapp (Next.js webapp)
+2. pieratwebapp (Multi-tenant Web Platform)
    - Located at: e:/CODING PROJECTS/pieratwebapp
-   - Purpose: Detailed reports and organization management
+   - Purpose: Hit reporting and organization management
    - Deployed on Vercel
+   - Multi-tenant support for different organizations
 
 ## Current Status
 
@@ -26,81 +28,111 @@ We have two main repositories:
    - Next.js configuration issues
    - Environment variables not properly propagating
 
-2. Architecture Concerns:
-   - Started with too much complexity
-   - Attempted auth setup before basic functionality
-   - Mixed concerns between bot and webapp
+2. Architecture Improvements:
+   - Simplified bot scope
+   - Moved hit reporting to webapp
+   - Added multi-tenant support
+   - Improved separation of concerns
 
-## Recommended New Approach
+## New Architecture
 
-1. Start Simple:
-   - Begin with static pages (no auth)
-   - Focus on core UI/UX first
-   - Use sample data initially
+1. Discord Bot:
+   - Core Commands:
+     * /lookup - Show player info and org history
+     * /cargo - Show commodity prices and locations
+   - Features:
+     * "Report Hit" button linking to webapp
+     * Simple, focused utility functions
+     * No direct hit reporting
 
-2. Step-by-Step Development:
-   a. Basic Pages:
-      - Landing page
-      - Organization view
-      - Report form
+2. Web Platform:
+   - Multi-tenant System:
+     * Organizations can register independently
+     * Each org has private data space
+     * Users belong to organizations
    
-   b. Add Features:
-      - Static data first
-      - Then add API endpoints
-      - Finally add auth
+   - Core Features:
+     * Hit Registration
+     * Crew Management
+     * Profit Sharing
+     * Payment Tracking
    
-   c. Bot Integration:
-      - Keep bot simple (lookup/cargo)
-      - Add webapp links to bot responses
-      - Share MongoDB models between services
+   - Authentication:
+     * Discord OAuth integration
+     * Organization-level permissions
+     * Role-based access control
 
-3. Testing Strategy:
-   - Test pages locally first
-   - Verify Vercel deployment
-   - Then add complexity
-
-## Environment Setup
+## Development Strategy
 
 1. Discord Bot:
    - Keep current setup
-   - Simplify to core commands
+   - Remove hit reporting code
+   - Add webapp deep links
+   - Focus on utility functions
 
 2. Webapp:
-   - Start fresh with simpler Next.js setup
-   - Focus on static pages first
-   - Add Tailwind for styling
-   - Add auth later
+   - Multi-tenant foundation first
+   - Organization management
+   - Hit reporting system
+   - Payment tracking
+   - Historical data and analytics
 
 ## Next Steps
 
-1. Clean up webapp repository:
-   - Remove auth for now
-   - Focus on static pages
-   - Use sample data
+1. Bot Updates:
+   - Remove hit reporting code
+   - Add webapp deep links
+   - Update documentation
+   - Test deployment
 
-2. Implement core pages:
-   - Landing page
-   - Organization view
-   - Report form
+2. Webapp Development:
+   - Setup multi-tenant structure
+   - Implement Discord auth
+   - Create organization system
+   - Build hit reporting flow
 
-3. Once basic flow works:
-   - Add MongoDB integration
-   - Add Discord auth
-   - Connect with bot
+3. Integration:
+   - Test bot-to-webapp links
+   - Verify auth flow
+   - Test multi-org isolation
+
+## Development Guidelines
+
+1. Bot Development:
+   - Keep functionality focused on lookups/prices
+   - Maintain simple command structure
+   - Ensure proper error handling
+   - Add clear webapp links
+
+2. Webapp Development:
+   - Focus on multi-tenant security
+   - Keep organizations isolated
+   - Implement proper access control
+   - Build mobile-friendly UI
+
+3. General Guidelines:
+   - Test thoroughly
+   - Document API changes
+   - Keep security in mind
+   - Regular backups
+   - Monitor performance
 
 ## Lessons Learned
 
-1. Start Simple:
-   - Get basic pages working first
-   - Add complexity gradually
-   - Test each step thoroughly
+1. Architecture:
+   - Keep services focused
+   - Separate concerns clearly
+   - Plan for multi-tenant early
+   - Consider security first
 
 2. Development Flow:
-   - Local development first
-   - Verify deployment
-   - Then add features
+   - Start with core features
+   - Add complexity gradually
+   - Test each component
+   - Document changes
 
 3. Project Organization:
-   - Keep bot and webapp separate
-   - Share only necessary code/models
-   - Document dependencies clearly
+   - Keep repositories separate
+   - Clear documentation
+   - Regular updates
+   - Version control

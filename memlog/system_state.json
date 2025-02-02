@@ -1,16 +1,17 @@
 {
-  "lastUpdated": "2025-02-01T00:10:31+04:00",
+  "lastUpdated": "2025-02-01T01:11:00+04:00",
   "repositories": {
     "pieratdiscordbot": {
       "path": "e:/CODING PROJECTS/SC Name Check",
-      "status": "stable",
+      "status": "refactoring",
       "deployment": "railway",
       "currentFeatures": [
         "player lookup",
-        "cargo info",
-        "basic MongoDB integration"
+        "cargo price lookup",
+        "webapp deep links"
       ],
       "nextSteps": [
+        "remove hit reporting",
         "simplify commands",
         "add webapp links",
         "improve error handling"
@@ -26,9 +27,10 @@
         "tailwind setup"
       ],
       "nextSteps": [
-        "remove auth temporarily",
-        "create static pages",
-        "add sample data"
+        "setup multi-tenant system",
+        "implement Discord auth",
+        "create organization system",
+        "build hit reporting"
       ]
     }
   },
@@ -51,9 +53,10 @@
     }
   },
   "priorities": [
-    "Fix webapp deployment",
-    "Create static organization page",
-    "Add report form",
-    "Test bot-to-webapp links"
+    "Remove hit reporting from bot",
+    "Setup multi-tenant foundation",
+    "Create organization system",
+    "Implement Discord auth",
+    "Build hit reporting flow"
   ]
 }
